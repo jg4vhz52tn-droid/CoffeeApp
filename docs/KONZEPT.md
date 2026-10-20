@@ -62,10 +62,15 @@ Später lässt sich derselbe Code mit Capacitor o. Ä. als native App verpacken.
 
 ## Roadmap
 
-**Phase 1 – MVP (dieser Stand)**
+**Phase 1 – MVP (fertig)**
 - Kompass + Begriffe, Empfehlung, Rezept-Übernahme, Verlauf pro Bohne
 - Bohnen-Profile anlegen, teilen (Link), importieren (Link/JSON/Datei)
 - Offline-fähig, Hell/Dunkel, mobil optimiert
+
+**Phase 1b – Erweiterung (dieser Stand)**
+- Neues Design: dunkle „Instrument“-Panels, ziehbarer Kompass-Punkt, Stepper, Shot-Timer, Animationen
+- Brühmethoden mit Rezepten (AeroPress, French Press, V60, Chemex, Moka, Cold Brew), Mengen-Regler und geführtem Timer
+- Café-Suche über OpenStreetMap mit Specialty-Einstufung (Rösterei, Name, Coffee-Shop-Tag; Ketten/Bäckereien abgewertet)
 
 **Phase 2 – Besser einstellen**
 - Mühlen-Datenbank (Stufen, Richtung, typische Bereiche) zur Auswahl
