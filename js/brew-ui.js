@@ -66,7 +66,6 @@
     current = B.scaleRecipe(base, state.brew.water || base.water);
     $('#p-dose').textContent = fmt(current.dose) + ' g';
     $('#p-water').textContent = fmt(current.water) + ' g';
-    $('#scaler-val').textContent = fmt(current.water) + ' g · ' + fmt(current.dose) + ' g Kaffee';
     current.steps.forEach(function (st, i) { var n = $('#step-d-' + i); if (n) n.textContent = st.detail; });
   }
 
@@ -85,11 +84,16 @@
 
     var minW = Math.max(30, Math.round(base.water * 0.5 / 10) * 10);
     var maxW = Math.round(base.water * 2.5 / 10) * 10;
-    var range = el('input', { type: 'range', id: 'water-range', min: minW, max: maxW, step: base.water >= 500 ? 25 : 10, value: water, 'aria-label': 'Wassermenge' });
-    range.addEventListener('input', function () {
-      state.brew.water = Number(range.value);
-      App.save();
-      refreshAmounts(base);
+    var wStep = base.water >= 500 ? 10 : 5;
+    var waterDial = window.TickDial({
+      label: 'Wassermenge', unit: 'g', value: water, min: minW, max: maxW, step: wStep,
+      majorEvery: wStep * 10, mediumEvery: wStep * 5, compact: true,
+      describe: function (v) { return fmt(B.scaleRecipe(base, v).dose) + ' g Kaffee'; },
+      onChange: function (v) {
+        state.brew.water = v;
+        App.save();
+        refreshAmounts(base);
+      }
     });
 
     var left = el('div', { class: 'instrument' }, [
@@ -103,10 +107,7 @@
         param('Mahlgrad', base.grind, bar),
         param('Dauer', B.formatTime(B.totalTime(base)))
       ]),
-      el('div', { class: 'scaler' }, [
-        el('div', { class: 'scaler-top' }, [el('span', { text: 'Menge anpassen' }), el('b', { id: 'scaler-val', text: fmt(current.water) + ' g · ' + fmt(current.dose) + ' g Kaffee' })]),
-        range
-      ]),
+      el('div', { class: 'scaler' }, [waterDial.el]),
       el('p', { class: 'recipe-notes', text: base.notes }),
       el('button', { class: 'btn accent', type: 'button', style: 'width:100%', onclick: openBrewMode }, [U.icon('play'), 'Geführt brühen']),
       base.source ? el('a', { class: 'source-link', href: base.source.url, target: '_blank', rel: 'noopener' }, ['Quelle: ' + base.source.label, U.icon('external')]) : null

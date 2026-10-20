@@ -49,7 +49,8 @@
           </label>
           <div id="bean-target" class="target-row" hidden></div>
 
-          <div class="steppers" id="steppers"></div>
+          <div class="dial-tabs" id="dial-tabs" role="tablist" aria-label="Rezeptwerte"></div>
+          <div id="dial-slot"></div>
 
           <div class="ratio-meter" aria-label="Brühverhältnis">
             <div class="ratio-top"><span class="label">Brühverhältnis</span><strong id="ratio-out" class="mono">1:2,0</strong></div>
@@ -67,6 +68,7 @@
             <summary>Mühle &amp; Strategie</summary>
             <div class="settings-grid">
               <label class="field"><span class="label">Schrittweite der Mühle</span><input id="set-step" type="number" step="any" min="0.1" value="1"></label>
+              <label class="field"><span class="label">Skala bis</span><input id="set-grindmax" type="number" step="1" min="1" value="40"></label>
               <label class="field"><span class="label">Richtung</span>
                 <select id="set-direction">
                   <option value="lower">kleinere Zahl = feiner</option>
@@ -114,6 +116,30 @@
       <div class="method-rail" id="method-rail" role="tablist" aria-label="Brühmethode"></div>
       <div class="recipe-grid" id="recipe-grid"></div>
       <div class="recipe-detail" id="recipe-detail" hidden></div>
+    </section>
+
+    <!-- ================= VERKOSTEN ================= -->
+    <section class="view" id="view-taste" data-title="Verkosten" hidden>
+      <div class="view-head">
+        <p class="eyebrow">Verkosten</p>
+        <h1>Dein Geschmack, Tasse für Tasse.</h1>
+        <p class="lede">Bewerte jeden Kaffee, den du probierst. Das Geschmacksrad zeigt dir, welche Aromen du am meisten magst.</p>
+      </div>
+      <div class="taste-grid">
+        <div class="instrument wheel-card">
+          <div class="panel-head">
+            <h2>Mein Geschmacksrad</h2>
+            <button class="btn accent small" id="rate-new" type="button">Kaffee bewerten</button>
+          </div>
+          <p class="instrument-hint">Je länger der Balken, desto besser hast du Kaffees mit diesen Aromen bewertet. Tippe ein Segment an.</p>
+          <svg id="flavor-wheel" viewBox="-200 -200 400 400" role="group" aria-label="Geschmacksrad"></svg>
+          <div id="taste-summary"></div>
+        </div>
+        <div class="panel" id="taste-side"></div>
+      </div>
+      <div class="panel rate-flow" id="rate-flow" hidden></div>
+      <h2 class="section-title">Meine Kaffees</h2>
+      <div class="coffee-list" id="coffee-list"></div>
     </section>
 
     <!-- ================= CAFÉS ================= -->
@@ -233,7 +259,7 @@
           <p class="muted">Sauer <em>und</em> bitter gleichzeitig liegt fast immer an der Puck-Vorbereitung (Channeling), nicht am Mahlgrad.</p>
         </article>
         <article class="panel span-all credit">
-          <p>Der Geschmackskompass basiert auf dem <em>Brewed Coffee Compass</em> von Barista Hustle, ins Deutsche übertragen und für Espresso adaptiert. AeroPress-Rezepte nach <a href="https://aeroprecipe.com" target="_blank" rel="noopener">AeroPrecipe</a>, Café-Daten © OpenStreetMap-Mitwirkende.</p>
+          <p>Der Geschmackskompass basiert auf dem <em>Brewed Coffee Compass</em> von Barista Hustle, ins Deutsche übertragen und für Espresso adaptiert. AeroPress-Rezepte nach <a href="https://aeroprecipe.com" target="_blank" rel="noopener">AeroPrecipe</a>, Aromafamilien angelehnt an das Coffee Taster's Flavor Wheel der SCA. Café-Daten © OpenStreetMap-Mitwirkende.</p>
         </article>
       </div>
     </section>
@@ -245,11 +271,14 @@
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
   <script src="js/ui.js"></script>
+  <script src="js/tickdial.js"></script>
   <script src="js/engine.js"></script>
   <script src="js/brew-data.js"></script>
   <script src="js/cafes.js"></script>
+  <script src="js/tasting-data.js"></script>
   <script src="js/app.js"></script>
   <script src="js/brew-ui.js"></script>
   <script src="js/cafes-ui.js"></script>
+  <script src="js/tasting-ui.js"></script>
 </body>
 </html>

@@ -67,10 +67,15 @@ Später lässt sich derselbe Code mit Capacitor o. Ä. als native App verpacken.
 - Bohnen-Profile anlegen, teilen (Link), importieren (Link/JSON/Datei)
 - Offline-fähig, Hell/Dunkel, mobil optimiert
 
-**Phase 1b – Erweiterung (dieser Stand)**
+**Phase 1b – Erweiterung (fertig)**
 - Neues Design: dunkle „Instrument“-Panels, ziehbarer Kompass-Punkt, Stepper, Shot-Timer, Animationen
 - Brühmethoden mit Rezepten (AeroPress, French Press, V60, Chemex, Moka, Cold Brew), Mengen-Regler und geführtem Timer
 - Café-Suche über OpenStreetMap mit Specialty-Einstufung (Rösterei, Name, Coffee-Shop-Tag; Ketten/Bäckereien abgewertet)
+
+**Phase 1c – Verkosten (dieser Stand)**
+- Drehrad-Regler wie in der Wein-App (iOS-Timer-Lineal, Haptik auch auf dem iPhone) für Dosis, Bezug, Zeit, Mahlgrad und Wassermenge
+- Kaffee bewerten: Tüte scannen (Foto → Claude liest Rösterei, Herkunft, Aufbereitung, Geschmacksnoten), Aromarad, Struktur, Urteil
+- Geschmacksrad: Ø-Bewertung je Aromafamilie, Lieblingsaromen, Lieblingsprofil (Radar), Rangliste nach Herkunft/Aufbereitung/Röster
 
 **Phase 2 – Besser einstellen**
 - Mühlen-Datenbank (Stufen, Richtung, typische Bereiche) zur Auswahl

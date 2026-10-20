@@ -41,6 +41,7 @@
   var VIEWS = [
     { id: 'espresso', label: 'Espresso', icon: 'espresso' },
     { id: 'brew', label: 'Brühen', icon: 'brew' },
+    { id: 'taste', label: 'Verkosten', icon: 'wheel' },
     { id: 'cafes', label: 'Cafés', icon: 'cafe' },
     { id: 'beans', label: 'Bohnen', icon: 'beans' },
     { id: 'learn', label: 'Wissen', icon: 'learn' }
@@ -159,7 +160,7 @@
     var x = Math.max(-1, Math.min(1, loc.x)), y = Math.max(-1, Math.min(1, -loc.y));
     taste.x = x; taste.y = y;
     var z = E.zoneOf({ x: x, y: y });
-    if (lastZone && z !== lastZone) U.vibrate(8);
+    if (lastZone && z !== lastZone) U.tick('medium');
     lastZone = z;
   }
   var raf = null;
@@ -198,10 +199,13 @@
       }, [el('span', { class: 'dot' }), g.title, n ? el('span', { class: 'count', text: n }) : null]));
     });
     var box = $('#chips');
+    // Chips only animate in when the group changes, not on every value update.
+    var animate = box.dataset.group !== activeGroup;
+    box.dataset.group = activeGroup;
     box.innerHTML = '';
     E.DESCRIPTORS.filter(function (d) { return groupOf(d) === activeGroup; }).forEach(function (d, i) {
       box.appendChild(el('button', {
-        class: 'chip', type: 'button', title: d.en, style: 'animation-delay:' + (i * 18) + 'ms',
+        class: 'chip' + (animate ? ' enter' : ''), type: 'button', title: d.en, style: animate ? 'animation-delay:' + (i * 18) + 'ms' : null,
         'aria-pressed': String(taste.descriptors.indexOf(d.id) >= 0),
         onclick: function () { toggleDescriptor(d.id); }
       }, [d.de]));
@@ -214,7 +218,7 @@
     var pos = E.positionFromDescriptors(taste.descriptors);
     taste.x = pos ? pos.x : null;
     taste.y = pos ? pos.y : null;
-    U.vibrate(5);
+    U.tick('minor');
     update();
   }
   function resetTaste() {
@@ -224,57 +228,95 @@
   }
   $('#taste-reset').addEventListener('click', resetTaste);
 
-  // ---------- recipe steppers ----------
-  var STEPPERS = [
-    { key: 'dose', label: 'Dosis', unit: 'g', step: 0.5, min: 5, max: 30 },
-    { key: 'yield', label: 'Bezug', unit: 'g', step: 1, min: 5, max: 120 },
-    { key: 'time', label: 'Zeit', unit: 's', step: 1, min: 0, max: 120, placeholder: '–' },
-    { key: 'grind', label: 'Mahlgrad', unit: '', step: null, placeholder: '–' }
-  ];
-  var stepperInputs = {};
-  STEPPERS.forEach(function (s) {
-    var input = el('input', { type: 'number', inputmode: 'decimal', step: 'any', id: 'in-' + s.key, 'aria-label': s.label, placeholder: s.placeholder || '' });
-    input.addEventListener('input', function () {
-      state.current[s.key] = input.value === '' ? '' : Number(input.value);
-      save(); update();
+  // ---------- recipe dials: tabs on top, one iOS-timer-like ruler below ----------
+  function grindScale() {
+    var st = Number(state.settings.grindStep) || 1;
+    return {
+      min: 0, max: Number(state.settings.grindMax) || 40, step: st,
+      majorEvery: st >= 1 ? st * 5 : 1, mediumEvery: st < 0.5 ? 0.5 : null
+    };
+  }
+  function timeWindow() {
+    var p = profileById(state.current.beanId);
+    return p ? [p.timeMin, p.timeMax] : [25, 32];
+  }
+  var DIALS = {
+    dose: { label: 'Dosis', unit: 'g', min: 5, max: 30, step: 0.1, majorEvery: 1, mediumEvery: 0.5, fallback: 18,
+      describe: function (v) { return v < 12 ? 'Single-Sieb' : v <= 21 ? 'Doppeltes Sieb' : 'Triple-Sieb'; } },
+    yield: { label: 'Bezug', unit: 'g', min: 10, max: 90, step: 0.5, majorEvery: 5, mediumEvery: 1, fallback: 36,
+      describe: function (v) {
+        var r = state.current.dose ? v / state.current.dose : 2;
+        return '1:' + fmt(r, 1) + ' · ' + (r < 1.5 ? 'Ristretto' : r <= 2.5 ? 'Normale' : 'Lungo');
+      } },
+    time: { label: 'Zeit', unit: 's', min: 0, max: 60, step: 1, majorEvery: 5, fallback: 28,
+      describe: function (v, touched) {
+        if (!touched) return 'Wischen oder Shot-Timer';
+        var w = timeWindow();
+        return v < w[0] ? 'zu schnell' : v > w[1] ? 'zu langsam' : 'im Zielfenster';
+      } },
+    grind: { label: 'Mahlgrad', unit: '', fallback: 12,
+      describe: function (v, touched) { return touched ? 'Stufe ' + fmt(v, 2) : 'Wischen zum Einstellen'; } }
+  };
+  var DIAL_ORDER = ['dose', 'yield', 'time', 'grind'];
+  var activeKey = 'dose', dial = null;
+
+  function dialText(k) {
+    var v = state.current[k];
+    if (v === '' || v == null) return '–';
+    return fmt(v, k === 'grind' ? 2 : 1) + (DIALS[k].unit ? '\u202f' + DIALS[k].unit : '');
+  }
+  function renderDialTabs() {
+    var box = $('#dial-tabs');
+    box.innerHTML = '';
+    DIAL_ORDER.forEach(function (k) {
+      box.appendChild(el('button', {
+        class: 'dial-tab', type: 'button', role: 'tab', 'aria-selected': String(activeKey === k), 'data-key': k,
+        onclick: function () { if (activeKey !== k) { activeKey = k; U.tick('minor'); renderDialTabs(); mountDial(); } }
+      }, [el('span', { text: DIALS[k].label }), el('strong', { text: dialText(k) })]));
     });
-    function bump(dir) {
-      var stepSize = s.step || Number(state.settings.grindStep) || 1;
-      var cur = state.current[s.key] === '' || state.current[s.key] == null ? (s.key === 'time' ? 25 : 0) : Number(state.current[s.key]);
-      var v = Math.round((cur + dir * stepSize) * 100) / 100;
-      if (s.min != null) v = Math.max(s.min, v);
-      if (s.max != null) v = Math.min(s.max, v);
-      state.current[s.key] = v;
-      input.value = v;
-      U.vibrate(4);
-      save(); update();
-    }
-    var box = el('div', { class: 'stepper' }, [
-      el('span', { class: 'label', text: s.label + (s.unit ? ' (' + s.unit + ')' : '') }),
-      el('div', { class: 'row' }, [
-        el('button', { type: 'button', 'aria-label': s.label + ' verringern', onclick: function () { bump(-1); } }, [U.icon('minus')]),
-        input,
-        el('button', { type: 'button', 'aria-label': s.label + ' erhöhen', onclick: function () { bump(1); } }, [U.icon('plus')])
-      ])
-    ]);
-    stepperInputs[s.key] = { input: input, box: box };
-    $('#steppers').appendChild(box);
-  });
+  }
+  function mountDial() {
+    var def = DIALS[activeKey];
+    var key = activeKey;
+    var scale = key === 'grind' ? grindScale() : def;
+    dial = window.TickDial({
+      label: def.label, unit: def.unit, value: state.current[key], fallback: def.fallback,
+      min: scale.min, max: scale.max, step: scale.step, majorEvery: scale.majorEvery, mediumEvery: scale.mediumEvery,
+      describe: def.describe,
+      onChange: function (v) {
+        state.current[key] = v;
+        save();
+        var tab = $('.dial-tab[data-key="' + key + '"] strong');
+        if (tab) tab.textContent = dialText(key);
+        update();
+      }
+    });
+    var slot = $('#dial-slot');
+    slot.innerHTML = '';
+    slot.appendChild(dial.el);
+  }
   function flash(key) {
-    var b = stepperInputs[key].box;
+    var b = $('.dial-tab[data-key="' + key + '"]');
+    if (!b) return;
     b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash');
   }
 
   function fillInputs() {
-    Object.keys(stepperInputs).forEach(function (k) {
-      var v = state.current[k];
-      stepperInputs[k].input.value = v == null ? '' : v;
-    });
+    renderDialTabs();
+    if (dial) dial.set(state.current[activeKey]); else mountDial();
     $('#set-step').value = state.settings.grindStep;
+    $('#set-grindmax').value = state.settings.grindMax || 40;
     $('#set-direction').value = state.settings.direction;
     $$('input[name="keep"]').forEach(function (r) { r.checked = r.value === state.settings.keep; });
   }
-  $('#set-step').addEventListener('input', function () { state.settings.grindStep = Number(this.value) || 1; save(); update(); });
+  $('#set-step').addEventListener('input', function () {
+    state.settings.grindStep = Number(this.value) || 1; save(); update();
+    if (activeKey === 'grind') mountDial();
+  });
+  $('#set-grindmax').addEventListener('input', function () {
+    state.settings.grindMax = Math.max(1, Number(this.value) || 40); save();
+    if (activeKey === 'grind') mountDial();
+  });
   $('#set-direction').addEventListener('change', function () { state.settings.direction = this.value; save(); update(); });
   $$('input[name="keep"]').forEach(function (r) {
     r.addEventListener('change', function () { state.settings.keep = r.value; save(); update(); });
@@ -295,16 +337,17 @@
       timer.start = performance.now();
       timer.iv = setInterval(function () { renderTimer((performance.now() - timer.start) / 1000); }, 100);
       renderTimer(0);
-      U.vibrate(15);
+      U.tick('major');
     } else {
       var sec = Math.round((performance.now() - timer.start) / 1000);
       clearInterval(timer.iv);
       timer.running = false;
       state.current.time = sec;
-      stepperInputs.time.input.value = sec;
+      activeKey = 'time';
+      renderDialTabs(); mountDial();
       flash('time');
       renderTimer(0);
-      U.vibrate([10, 40, 10]);
+      U.tick('major');
       save(); update();
       toast('Zeit übernommen: ' + sec + ' s');
     }
@@ -403,7 +446,7 @@
     }
     badge.className = 'zone-badge zone-' + r.zone;
     badge.textContent = { sweetspot: 'Im Zentrum', green: 'Grüner Bereich', off: 'Korrigieren' }[r.zone];
-    if (r.zone === 'sweetspot' && prevZone !== 'sweetspot') U.vibrate([20, 60, 20]);
+    if (r.zone === 'sweetspot' && prevZone !== 'sweetspot') U.tick('major');
 
     var c = state.current, n = r.next;
     var grindVal = n.grind == null

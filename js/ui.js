@@ -61,6 +61,54 @@
     try { if (navigator.vibrate) navigator.vibrate(ms); } catch (e) { /* not allowed */ }
   }
 
+  /*
+   * Haptic "clicks" in three strengths (same approach as the wine app):
+   * Android vibrates for different lengths; iPhone Safari has no vibration API,
+   * but toggling a hidden <input switch> plays the system tick. iOS only allows
+   * that directly inside a tap or touch-end, which is what releaseTick is for.
+   */
+  var lastTick = 0, iosSwitch = null;
+  function isIOS() {
+    return /iPhone|iPad|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  }
+  function iosTick() {
+    if (!iosSwitch) {
+      var input = document.createElement('input');
+      input.type = 'checkbox';
+      input.setAttribute('switch', '');
+      input.id = 'ek-haptic-switch';
+      var label = document.createElement('label');
+      label.htmlFor = input.id;
+      [input, label].forEach(function (n) {
+        n.setAttribute('aria-hidden', 'true');
+        n.tabIndex = -1;
+        n.style.cssText = 'position:fixed;width:1px;height:1px;opacity:0;pointer-events:none;left:-10px;top:0';
+      });
+      document.body.appendChild(input);
+      document.body.appendChild(label);
+      iosSwitch = label;
+    }
+    iosSwitch.click();
+  }
+  function tick(kind) {
+    kind = kind || 'minor';
+    var now = performance.now();
+    if (now - lastTick < 28 && kind === 'minor') return;
+    lastTick = now;
+    try {
+      if ('vibrate' in navigator) { navigator.vibrate(kind === 'major' ? 22 : kind === 'medium' ? 12 : 5); return; }
+    } catch (e) { return; }
+    if (isIOS()) {
+      iosTick();
+      if (kind === 'major') setTimeout(iosTick, 70);
+    }
+  }
+  function releaseTick(kind) {
+    if ('vibrate' in navigator || !isIOS()) return;
+    iosTick();
+    if (kind === 'major') setTimeout(iosTick, 70);
+  }
+
   // Short beep for step changes in the brew timer. Only after a user gesture.
   var audioCtx = null;
   function beep(freq) {
@@ -101,6 +149,8 @@
     minus: '<path d="M5 12h14"/>',
     arrow: '<path d="M5 12h14M13 6l6 6-6 6"/>',
     external: '<path d="M14 4h6v6"/><path d="M20 4l-9 9"/><path d="M18 14v5a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7a1 1 0 0 1 1-1h5"/>',
+    scan: '<path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 8h8v8H8z"/>',
+    wheel: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3"/><path d="M12 3v6M12 15v6M3 12h6M15 12h6M5.6 5.6l4.3 4.3M14.1 14.1l4.3 4.3M18.4 5.6l-4.3 4.3M9.9 14.1l-4.3 4.3"/>',
     star: '<path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"/>'
   };
   function icon(name, cls) {
@@ -110,5 +160,5 @@
     return wrap.firstChild;
   }
 
-  root.UI = { $: $, $$: $$, el: el, svg: svg, fmt: fmt, toast: toast, load: load, save: save, vibrate: vibrate, beep: beep, icon: icon, ICONS: ICONS };
+  root.UI = { $: $, $$: $$, el: el, svg: svg, fmt: fmt, toast: toast, load: load, save: save, vibrate: vibrate, tick: tick, releaseTick: releaseTick, beep: beep, icon: icon, ICONS: ICONS };
 })(this);
