@@ -392,7 +392,7 @@
           el('button', { class: 'btn small', type: 'button', onclick: function () { useBean(p.id); } }, ['Einstellen']),
           el('button', { class: 'btn small ghost', type: 'button', onclick: function () { editBean(p.id); } }, ['Bearbeiten']),
           el('button', { class: 'btn small ghost', type: 'button', onclick: function () { shareBean(p); } }, ['Link teilen']),
-          el('button', { class: 'btn small ghost', type: 'button', onclick: function () { deleteBean(p.id); } }, ['Löschen'])
+          el('button', { class: 'btn small ghost', type: 'button', onclick: function (ev) { deleteBean(p.id, ev.currentTarget); } }, ['Löschen'])
         ])
       ]));
     });
@@ -415,9 +415,14 @@
     $('#bean-import-card').hidden = true;
     f.elements.name.focus();
   }
-  function deleteBean(id) {
-    var p = profileById(id);
-    if (!confirm('Profil „' + p.name + '“ und seinen Verlauf löschen?')) return;
+  // Two-step delete: first click arms the button, second click deletes.
+  function deleteBean(id, btn) {
+    if (btn.dataset.armed !== '1') {
+      btn.dataset.armed = '1';
+      btn.textContent = 'Wirklich löschen?';
+      setTimeout(function () { if (btn.isConnected) { btn.dataset.armed = ''; btn.textContent = 'Löschen'; } }, 4000);
+      return;
+    }
     state.profiles = state.profiles.filter(function (x) { return x.id !== id; });
     state.shots = state.shots.filter(function (s) { return s.beanId !== id; });
     if (state.current.beanId === id) state.current.beanId = '';
@@ -463,14 +468,18 @@
   }
   function shareBean(p) {
     var url = location.origin + location.pathname + '#bean=' + encodeProfile(p);
-    if (navigator.share) {
-      navigator.share({ title: p.name, text: 'Espresso-Rezept für ' + p.name, url: url }).catch(function () {});
-    } else if (navigator.clipboard) {
-      navigator.clipboard.writeText(url).then(function () { toast('Link kopiert.'); }, function () { prompt('Link kopieren:', url); });
+    var box = $('#share-box');
+    $('#share-name').textContent = p.name;
+    $('#share-url').value = url;
+    box.hidden = false;
+    box.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(function () { toast('Link kopiert.'); }, function () { $('#share-url').select(); });
     } else {
-      prompt('Link kopieren:', url);
+      $('#share-url').select();
     }
   }
+  $('#share-close').addEventListener('click', function () { $('#share-box').hidden = true; });
   function importProfile(p) {
     p.id = uniqueId(p.id);
     state.profiles.push(p);
@@ -505,13 +514,12 @@
     var m = location.hash.match(/^#bean=([A-Za-z0-9_-]+)/);
     if (!m) return;
     history.replaceState(null, '', location.pathname + location.search);
-    try {
-      var p = decodeProfile(m[1]);
-      if (confirm('Bohnen-Profil „' + p.name + '“ (' + p.dose + ' g → ' + p.yield + ' g, ' + p.timeMin + '–' + p.timeMax + ' s) importieren?')) {
-        var added = importProfile(p);
-        useBean(added.id);
-      }
-    } catch (e) { toast('Profil-Link ungültig: ' + e.message); }
+    // Show the shared profile in the import card so the user confirms in the page.
+    showTab('beans');
+    $('#bean-import-card').hidden = false;
+    $('#bean-form-card').hidden = true;
+    $('#import-text').value = location.origin + location.pathname + m[0];
+    $('#import-error').hidden = true;
   }
 
   // ---------- history tab ----------

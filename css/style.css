@@ -33,6 +33,22 @@
     color-scheme: dark;
   }
 }
+:root[data-theme="dark"] {
+  --bg: #17110d;
+  --surface: #221a14;
+  --surface-2: #2d231b;
+  --text: #f3e9df;
+  --muted: #b49f8d;
+  --border: #3b2f25;
+  --accent: #d98a4e;
+  --accent-text: #1b120c;
+  --green: #234a36;
+  --green-strong: #6fd19a;
+  --under: #e2ad4a;
+  --over: #e07a68;
+  --marker: #f3e9df;
+  color-scheme: dark;
+}
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }
@@ -44,10 +60,16 @@ body {
 }
 
 .app-header {
-  position: sticky; top: 0; z-index: 10;
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 10;
   background: var(--bg);
   border-bottom: 1px solid var(--border);
-  padding: 10px 16px 0;
+  padding-block: 10px 0;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+body::before {
+  content: ""; position: fixed; inset: 0 0 auto; z-index: 11;
+  height: env(safe-area-inset-top, 0px); background: var(--bg);
 }
 .brand { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 1.1rem; }
 .brand-mark { width: 24px; height: 24px; color: var(--accent); }
@@ -60,7 +82,11 @@ body {
 }
 .tabs button[aria-selected="true"] { color: var(--text); border-bottom-color: var(--accent); }
 
-main { max-width: 920px; margin: 0 auto; padding: 16px 16px 80px; }
+main {
+  max-width: 920px; margin: 0 auto; padding-block: 16px 80px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
 
 .card {
   background: var(--surface);
@@ -176,6 +202,9 @@ main { max-width: 920px; margin: 0 auto; padding: 16px 16px 80px; }
 .history-list li { padding: 8px 0; border-bottom: 1px solid var(--border); font-size: .92rem; }
 .history-list .meta { color: var(--muted); }
 
+.share-box { margin-top: 12px; padding: 12px; border-radius: 10px; background: var(--surface-2); display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.share-box p { margin: 0; font-size: .92rem; }
+.share-box input { width: 100%; font: inherit; font-size: .85rem; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 8px 10px; }
 .error { color: var(--over); }
 .prose ul, .prose ol { padding-left: 20px; }
 .levers dt { font-weight: 700; margin-top: 8px; }
@@ -183,7 +212,7 @@ main { max-width: 920px; margin: 0 auto; padding: 16px 16px 80px; }
 .credit { font-size: .88rem; color: var(--muted); }
 
 .toast {
-  position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%);
+  position: fixed; left: 50%; bottom: calc(20px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%);
   background: var(--text); color: var(--bg); padding: 10px 16px; border-radius: 10px;
   max-width: calc(100% - 32px); box-shadow: 0 6px 20px rgba(0,0,0,.2);
 }

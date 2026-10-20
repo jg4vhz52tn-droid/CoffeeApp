@@ -91,6 +91,11 @@
           <button class="btn" id="bean-new">+ Neues Profil</button>
           <button class="btn ghost" id="bean-import-btn">Importieren</button>
         </div>
+        <div id="share-box" class="share-box" hidden>
+          <p>Link für <strong id="share-name"></strong>, z. B. als QR-Code auf der Kaffeetüte:</p>
+          <input id="share-url" readonly aria-label="Profil-Link">
+          <button class="btn small ghost" type="button" id="share-close">Schließen</button>
+        </div>
       </div>
 
       <div class="card" id="bean-form-card" hidden>
