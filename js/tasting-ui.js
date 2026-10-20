@@ -10,6 +10,14 @@
   var $ = U.$, el = U.el, svg = U.svg, fmt = U.fmt, toast = U.toast;
   var state = App.state;
   state.ratings = state.ratings || [];
+  // Fill the tasting view with the marked examples once, so the taste wheel,
+  // favourite profile and list show something on first visit. Removing them
+  // sets the flag for good; the button can still load them again.
+  if (!state.examplesSeeded) {
+    state.examplesSeeded = true;
+    if (!state.ratings.some(function (r) { return r.example; })) state.ratings = state.ratings.concat(T.exampleRatings());
+    App.save();
+  }
 
   var SEG = 360 / T.AROMA_FAMILIES.length;
   var DARK_TEXT = '#1a120c';
