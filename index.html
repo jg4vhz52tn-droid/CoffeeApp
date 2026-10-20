@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Espresso Kompass</title>
+  <meta name="description" content="Espresso einstellen nach Geschmack: Kompass antippen, konkrete Empfehlung für Mahlgrad, Dosis und Bezug bekommen.">
+  <meta name="theme-color" content="#2b1d14">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+  <header class="app-header">
+    <div class="brand">
+      <svg class="brand-mark" viewBox="0 0 32 32" aria-hidden="true"><circle cx="16" cy="16" r="14" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 5 L19 16 L16 27 L13 16 Z" fill="currentColor"/></svg>
+      <span>Espresso Kompass</span>
+    </div>
+    <nav class="tabs" role="tablist">
+      <button role="tab" data-tab="dial" aria-selected="true">Einstellen</button>
+      <button role="tab" data-tab="beans">Bohnen</button>
+      <button role="tab" data-tab="history">Verlauf</button>
+      <button role="tab" data-tab="learn">Wissen</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- ============ EINSTELLEN ============ -->
+    <section id="tab-dial" class="tab-panel">
+      <div class="card">
+        <label class="field">
+          <span>Bohne</span>
+          <select id="bean-select"></select>
+        </label>
+        <div id="bean-target" class="target-strip" hidden></div>
+      </div>
+
+      <div class="card">
+        <h2><span class="step">1</span> Dein letzter Shot</h2>
+        <div class="grid4">
+          <label class="field"><span>Dosis (g)</span><input id="in-dose" type="number" inputmode="decimal" step="0.1" min="5" max="30"></label>
+          <label class="field"><span>Bezug (g)</span><input id="in-yield" type="number" inputmode="decimal" step="1" min="5" max="120"></label>
+          <label class="field"><span>Zeit (s)</span><input id="in-time" type="number" inputmode="numeric" step="1" min="0" max="120" placeholder="z. B. 28"></label>
+          <label class="field"><span>Mahlgrad</span><input id="in-grind" type="number" inputmode="decimal" step="any" placeholder="z. B. 12"></label>
+        </div>
+        <p class="ratio-line">Brühverhältnis <strong id="ratio-out">1:2,0</strong></p>
+        <ul id="precheck" class="precheck" hidden></ul>
+        <details class="settings">
+          <summary>Mühle &amp; Strategie</summary>
+          <div class="grid2">
+            <label class="field"><span>Schrittweite der Mühle</span><input id="set-step" type="number" step="any" min="0.1" value="1"></label>
+            <label class="field"><span>Richtung</span>
+              <select id="set-direction">
+                <option value="lower">kleinere Zahl = feiner</option>
+                <option value="higher">größere Zahl = feiner</option>
+              </select>
+            </label>
+          </div>
+          <fieldset class="seg">
+            <legend>Bei Stärke-Korrektur fix halten</legend>
+            <label><input type="radio" name="keep" value="dose" checked> Dosis (Bezug ändern)</label>
+            <label><input type="radio" name="keep" value="yield"> Bezug (Dosis ändern)</label>
+          </fieldset>
+        </details>
+      </div>
+
+      <div class="card">
+        <h2><span class="step">2</span> Wie schmeckt er?</h2>
+        <p class="hint">Wähle passende Begriffe <em>oder</em> tippe direkt auf den Kompass.</p>
+        <div class="taste-layout">
+          <div class="map-wrap">
+            <svg id="map" viewBox="-1.2 -1.2 2.4 2.4" role="img" aria-label="Geschmackskompass: links unterextrahiert, rechts überextrahiert, oben stark, unten schwach"></svg>
+          </div>
+          <div id="chips" class="chips"></div>
+        </div>
+      </div>
+
+      <div class="card result" id="result">
+        <h2><span class="step">3</span> Nächster Shot</h2>
+        <div id="result-body"><p class="hint">Sobald du den Geschmack angibst, bekommst du hier deine Empfehlung.</p></div>
+      </div>
+    </section>
+
+    <!-- ============ BOHNEN ============ -->
+    <section id="tab-beans" class="tab-panel" hidden>
+      <div class="card">
+        <h2>Bohnen-Profile</h2>
+        <p class="hint">Ein Profil ist das Zielrezept einer Bohne – von dir oder direkt von der Rösterei. Du kannst es als Link teilen oder importieren.</p>
+        <div id="bean-list" class="bean-list"></div>
+        <div class="row-actions">
+          <button class="btn" id="bean-new">+ Neues Profil</button>
+          <button class="btn ghost" id="bean-import-btn">Importieren</button>
+        </div>
+      </div>
+
+      <div class="card" id="bean-form-card" hidden>
+        <h2 id="bean-form-title">Profil</h2>
+        <form id="bean-form">
+          <div class="grid2">
+            <label class="field"><span>Name</span><input name="name" required maxlength="80"></label>
+            <label class="field"><span>Rösterei</span><input name="roaster" maxlength="80"></label>
+          </div>
+          <div class="grid4">
+            <label class="field"><span>Dosis (g)</span><input name="dose" type="number" step="0.1" required></label>
+            <label class="field"><span>Bezug (g)</span><input name="yield" type="number" step="1" required></label>
+            <label class="field"><span>Zeit von (s)</span><input name="timeMin" type="number" required></label>
+            <label class="field"><span>Zeit bis (s)</span><input name="timeMax" type="number" required></label>
+          </div>
+          <div class="grid2">
+            <label class="field"><span>Temperatur (°C)</span><input name="temp" type="number" step="0.5"></label>
+            <label class="field"><span>Röstgrad</span>
+              <select name="roast"><option value="hell">hell</option><option value="mittel" selected>mittel</option><option value="dunkel">dunkel</option></select>
+            </label>
+          </div>
+          <label class="field"><span>Notizen / Geschmacksziel</span><textarea name="notes" rows="2" maxlength="300"></textarea></label>
+          <div class="row-actions">
+            <button class="btn" type="submit">Speichern</button>
+            <button class="btn ghost" type="button" id="bean-cancel">Abbrechen</button>
+          </div>
+        </form>
+      </div>
+
+      <div class="card" id="bean-import-card" hidden>
+        <h2>Profil importieren</h2>
+        <p class="hint">Füge einen Profil-Link oder JSON ein, oder wähle eine Datei.</p>
+        <textarea id="import-text" rows="5" placeholder='{"name": "Hausmischung", "roast": "mittel", "recipe": {"dose": 18, "yield": 38, "timeMin": 26, "timeMax": 30, "temp": 93}}'></textarea>
+        <div class="row-actions">
+          <button class="btn" id="import-go">Importieren</button>
+          <label class="btn ghost file-btn">Datei wählen<input type="file" id="import-file" accept="application/json,.json" hidden></label>
+          <button class="btn ghost" id="import-cancel">Abbrechen</button>
+        </div>
+        <p id="import-error" class="error" hidden></p>
+      </div>
+    </section>
+
+    <!-- ============ VERLAUF ============ -->
+    <section id="tab-history" class="tab-panel" hidden>
+      <div class="card">
+        <h2>Verlauf</h2>
+        <label class="field"><span>Bohne</span><select id="history-bean"></select></label>
+        <div class="map-wrap small"><svg id="history-map" viewBox="-1.2 -1.2 2.4 2.4" role="img" aria-label="Verlauf der Shots auf dem Kompass"></svg></div>
+        <ol id="history-list" class="history-list"></ol>
+      </div>
+    </section>
+
+    <!-- ============ WISSEN ============ -->
+    <section id="tab-learn" class="tab-panel prose" hidden>
+      <div class="card">
+        <h2>So funktioniert der Kompass</h2>
+        <p>Jeder Espresso lässt sich auf zwei Achsen einordnen:</p>
+        <ul>
+          <li><strong>Extraktion</strong> (links ↔ rechts): Wie viel wurde aus dem Kaffee gelöst? Zu wenig schmeckt <em>sauer, salzig, kurz</em>. Zu viel schmeckt <em>bitter, trocken, adstringierend</em>.</li>
+          <li><strong>Stärke</strong> (unten ↕ oben): Wie konzentriert ist der Shot? Zu schwach wirkt <em>wässrig, dünn, teeartig</em>. Zu stark wirkt <em>schwer, suppig, überladen</em>.</li>
+        </ul>
+        <p>Der grüne Kreis ist der Bereich, in dem Espresso gut schmeckt. Deine Aufgabe: dort hinwandern – mit möglichst wenigen Shots.</p>
+      </div>
+      <div class="card">
+        <h2>Die vier Stellschrauben</h2>
+        <dl class="levers">
+          <dt>Mehr extrahieren</dt><dd>Feiner mahlen → der Shot läuft länger. Bei hellen Röstungen zusätzlich 1–2 °C wärmer.</dd>
+          <dt>Weniger extrahieren</dt><dd>Gröber mahlen → der Shot läuft schneller. Bei dunklen Röstungen 1–2 °C kühler.</dd>
+          <dt>Mehr Kaffee (stärker)</dt><dd>Kürzeres Brühverhältnis: weniger Bezug bei gleicher Dosis (z. B. 1:2,0 → 1:1,7).</dd>
+          <dt>Weniger Kaffee (milder)</dt><dd>Längeres Brühverhältnis: mehr Bezug bei gleicher Dosis (z. B. 1:2,0 → 1:2,4).</dd>
+        </dl>
+      </div>
+      <div class="card">
+        <h2>Der Ablauf mit neuen Bohnen</h2>
+        <ol>
+          <li>Mit einem Startrezept beginnen – vom Röster oder 18 g → 36 g in 25–32 s.</li>
+          <li>Shot ziehen, Bezug und Zeit wiegen bzw. stoppen.</li>
+          <li>Probieren und im Kompass einordnen.</li>
+          <li><strong>Nur eine Sache ändern</strong> – meist den Mahlgrad – und wiederholen.</li>
+          <li>Liegt der Shot im Zentrum: Rezept speichern, fertig.</li>
+        </ol>
+        <p>Schmeckt ein Shot <em>gleichzeitig</em> sauer und bitter, liegt es fast immer an der Puck-Vorbereitung (Channeling) – nicht am Mahlgrad.</p>
+      </div>
+      <div class="card credit">
+        <p>Der Geschmackskompass basiert auf dem <em>Brewed Coffee Compass</em> von Barista Hustle. Die Begriffe wurden ins Deutsche übertragen und für Espresso adaptiert.</p>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+
+  <script src="js/engine.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

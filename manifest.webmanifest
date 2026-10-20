@@ -1,0 +1,11 @@
+{
+  "name": "Espresso Kompass",
+  "short_name": "Kompass",
+  "description": "Espresso nach Geschmack einstellen.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f6f1ea",
+  "theme_color": "#2b1d14",
+  "lang": "de",
+  "icons": [{ "src": "icons/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}
