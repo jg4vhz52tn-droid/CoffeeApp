@@ -1,10 +1,11 @@
-/* Espresso Kompass – UI layer. All dial-in logic lives in engine.js. */
+/* Espresso Kompass – app shell, espresso dial-in view and bean profiles.
+   Dial-in logic lives in engine.js; brewing and café views in brew-ui.js / cafes-ui.js. */
 (function () {
   'use strict';
 
   var E = window.DialEngine;
-  var STORE_KEY = 'espresso-kompass-v1';
-  var SVG_NS = 'http://www.w3.org/2000/svg';
+  var U = window.UI;
+  var $ = U.$, $$ = U.$$, el = U.el, svg = U.svg, fmt = U.fmt, toast = U.toast;
 
   var EXAMPLE_PROFILES = [
     { id: 'beispiel-klassisch', name: 'Beispiel: Klassischer Espresso', roaster: 'Vorlage', roast: 'mittel',
@@ -16,202 +17,342 @@
   ];
 
   // ---------- state ----------
-  var state = load() || {
-    profiles: EXAMPLE_PROFILES.map(function (p) { return E.parseProfile(p); }),
-    shots: [],
-    settings: { grindStep: 1, direction: 'lower', keep: 'dose' },
-    current: { beanId: 'beispiel-klassisch', dose: 18, yield: 36, time: '', grind: '' }
-  };
-  var taste = { x: null, y: null, descriptors: [], manual: false };
+  var state = U.load() || {};
+  state.profiles = state.profiles || EXAMPLE_PROFILES.map(function (p) { return E.parseProfile(p); });
+  state.shots = state.shots || [];
+  state.settings = state.settings || { grindStep: 1, direction: 'lower', keep: 'dose' };
+  state.current = state.current || { beanId: 'beispiel-klassisch', dose: 18, yield: 36, time: '', grind: 12 };
+  state.brew = state.brew || { method: 'aeropress' };
+  state.cafes = state.cafes || { radius: 2000, specialty: true, query: '' };
+
+  var taste = { x: null, y: null, descriptors: [] };
+  var activeGroup = 'under';
   var lastResult = null;
 
-  function load() {
-    try { var raw = localStorage.getItem(STORE_KEY); return raw ? JSON.parse(raw) : null; } catch (e) { return null; }
-  }
-  function save() {
-    try { localStorage.setItem(STORE_KEY, JSON.stringify(state)); } catch (e) { /* private mode: keep in memory */ }
-  }
+  function save() { U.save(state); }
 
-  // ---------- helpers ----------
-  function $(sel) { return document.querySelector(sel); }
-  function el(tag, attrs, children) {
-    var n = document.createElement(tag);
-    for (var k in attrs || {}) {
-      if (k === 'text') n.textContent = attrs[k];
-      else if (k === 'class') n.className = attrs[k];
-      else if (k.slice(0, 2) === 'on') n.addEventListener(k.slice(2), attrs[k]);
-      else n.setAttribute(k, attrs[k]);
-    }
-    (children || []).forEach(function (c) { if (c) n.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); });
-    return n;
-  }
-  function svg(tag, attrs) {
-    var n = document.createElementNS(SVG_NS, tag);
-    for (var k in attrs || {}) n.setAttribute(k, attrs[k]);
-    return n;
-  }
-  function fmt(n, digits) {
-    if (n === null || n === undefined || n === '' || isNaN(n)) return '–';
-    return Number(n).toLocaleString('de-DE', { maximumFractionDigits: digits == null ? 1 : digits });
-  }
-  function toast(msg) {
-    var t = $('#toast');
-    t.textContent = msg; t.hidden = false;
-    clearTimeout(toast._t);
-    toast._t = setTimeout(function () { t.hidden = true; }, 2600);
-  }
   function profileById(id) {
     for (var i = 0; i < state.profiles.length; i++) if (state.profiles[i].id === id) return state.profiles[i];
     return null;
   }
   function uid() { return Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
 
-  // ---------- tabs ----------
-  document.querySelectorAll('.tabs button').forEach(function (b) {
-    b.addEventListener('click', function () { showTab(b.dataset.tab); });
-  });
-  function showTab(name) {
-    document.querySelectorAll('.tabs button').forEach(function (b) {
-      b.setAttribute('aria-selected', String(b.dataset.tab === name));
-    });
-    document.querySelectorAll('.tab-panel').forEach(function (p) { p.hidden = p.id !== 'tab-' + name; });
-    if (name === 'beans') renderBeans();
-    if (name === 'history') renderHistory();
-    if (name === 'dial') renderBeanSelect();
-  }
-
-  // ---------- compass map ----------
-  function drawMap(root, opts) {
-    while (root.firstChild) root.removeChild(root.firstChild);
-    root.appendChild(svg('rect', { x: -1.2, y: -1.2, width: 2.4, height: 2.4, rx: 0.12, class: 'map-bg' }));
-    root.appendChild(svg('circle', { cx: 0, cy: 0, r: E.GREEN_RADIUS, class: 'map-green' }));
-    root.appendChild(svg('line', { x1: -1.05, y1: 0, x2: 1.05, y2: 0, class: 'map-axis' }));
-    root.appendChild(svg('line', { x1: 0, y1: -1.05, x2: 0, y2: 1.05, class: 'map-axis' }));
-    root.appendChild(svg('circle', { cx: 0, cy: 0, r: E.SWEET_SPOT_RADIUS, class: 'map-sweet' }));
-
-    if (opts.words) {
-      E.DESCRIPTORS.forEach(function (d) {
-        var t = svg('text', { x: d.x, y: -d.y + 0.02, class: 'map-word' });
-        t.textContent = d.de;
-        root.appendChild(t);
-      });
-    }
-
-    [['Stark', 0, -1.1], ['Schwach', 0, 1.15], ['Sauer', -1.08, 0.03], ['Bitter', 1.08, 0.03]].forEach(function (l) {
-      var t = svg('text', { x: l[1], y: l[2], class: 'map-label' });
-      if (l[0] === 'Sauer' || l[0] === 'Bitter') t.setAttribute('transform', 'rotate(' + (l[0] === 'Sauer' ? -90 : 90) + ' ' + l[1] + ' ' + l[2] + ')');
-      t.textContent = l[0];
-      root.appendChild(t);
-    });
-
-    var trail = opts.trail || [];
-    if (trail.length > 1) {
-      root.appendChild(svg('polyline', {
-        points: trail.map(function (p) { return p.x + ',' + (-p.y); }).join(' '),
-        class: 'map-trail'
-      }));
-    }
-    trail.forEach(function (p, i) {
-      if (opts.pos && i === trail.length - 1 && !opts.trailIncludesPos) return;
-      root.appendChild(svg('circle', { cx: p.x, cy: -p.y, r: 0.028, class: 'map-dot' }));
-    });
-
-    if (opts.pos) {
-      var p = opts.pos;
-      if (opts.arrow && E.zoneOf(p) !== 'sweetspot') {
-        var len = Math.sqrt(p.x * p.x + p.y * p.y);
-        var reach = Math.min(len - 0.08, 0.45);
-        if (reach > 0.05) {
-          var ux = -p.x / len, uy = -p.y / len;
-          var ex = p.x + ux * reach, ey = p.y + uy * reach;
-          root.appendChild(svg('line', { x1: p.x, y1: -p.y, x2: ex, y2: -ey, class: 'map-arrow' }));
-          var hx = ex + ux * 0.06, hy = ey + uy * 0.06;
-          var px = -uy * 0.045, py = ux * 0.045;
-          root.appendChild(svg('polygon', {
-            points: hx + ',' + (-hy) + ' ' + (ex + px) + ',' + (-(ey + py)) + ' ' + (ex - px) + ',' + (-(ey - py)),
-            class: 'map-arrowhead'
-          }));
-        }
-      }
-      root.appendChild(svg('circle', { cx: p.x, cy: -p.y, r: 0.055, class: 'map-marker' }));
-    }
-  }
-
-  var mapEl = $('#map');
-  mapEl.addEventListener('pointerdown', function (ev) {
-    var pt = mapEl.createSVGPoint();
-    pt.x = ev.clientX; pt.y = ev.clientY;
-    var loc = pt.matrixTransform(mapEl.getScreenCTM().inverse());
-    taste.x = Math.max(-1, Math.min(1, loc.x));
-    taste.y = Math.max(-1, Math.min(1, -loc.y));
-    taste.manual = true;
-    update();
-  });
-
-  // ---------- chips ----------
-  var GROUPS = [
-    { key: 'under', title: 'Sauer / unterextrahiert' },
-    { key: 'over', title: 'Bitter / überextrahiert' },
-    { key: 'weak', title: 'Zu schwach' },
-    { key: 'strong', title: 'Zu stark' },
-    { key: 'good', title: 'Im grünen Bereich' }
+  // ---------- navigation ----------
+  var VIEWS = [
+    { id: 'espresso', label: 'Espresso', icon: 'espresso' },
+    { id: 'brew', label: 'Brühen', icon: 'brew' },
+    { id: 'taste', label: 'Verkosten', icon: 'wheel' },
+    { id: 'cafes', label: 'Cafés', icon: 'cafe' },
+    { id: 'beans', label: 'Bohnen', icon: 'beans' },
+    { id: 'learn', label: 'Wissen', icon: 'learn' }
   ];
+  var viewListeners = {};
+  var dock = $('#dock');
+  VIEWS.forEach(function (v) {
+    var b = el('button', { type: 'button', 'data-view': v.id, onclick: function () { showView(v.id); } }, [U.icon(v.icon), el('span', { text: v.label })]);
+    dock.appendChild(b);
+  });
+  $('.brand').addEventListener('click', function (ev) { ev.preventDefault(); showView('espresso'); });
+
+  function showView(id, opts) {
+    if (!VIEWS.some(function (v) { return v.id === id; })) id = 'espresso';
+    $$('#dock button').forEach(function (b) {
+      if (b.dataset.view === id) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
+    });
+    $$('.view').forEach(function (v) { v.hidden = v.id !== 'view-' + id; });
+    state.view = id;
+    save();
+    try { if (location.hash.slice(1) !== id && !/^#bean=/.test(location.hash)) history.replaceState(null, '', '#' + id); } catch (e) { /* sandboxed */ }
+    if (!(opts && opts.keepScroll)) window.scrollTo({ top: 0 });
+    (viewListeners[id] || []).forEach(function (fn) { fn(); });
+  }
+  function onView(id, fn) { (viewListeners[id] = viewListeners[id] || []).push(fn); }
+
+  // ---------- compass ----------
   function groupOf(d) {
     if (d.inner) return 'good';
     if (Math.abs(d.x) >= Math.abs(d.y)) return d.x < 0 ? 'under' : 'over';
     return d.y < 0 ? 'weak' : 'strong';
   }
-  function renderChips() {
-    var box = $('#chips');
-    box.innerHTML = '';
-    GROUPS.forEach(function (g) {
-      var wrap = el('div', { class: 'wrap' });
-      E.DESCRIPTORS.filter(function (d) { return groupOf(d) === g.key; }).forEach(function (d) {
-        wrap.appendChild(el('button', {
-          class: 'chip', type: 'button', title: d.en,
-          'aria-pressed': String(taste.descriptors.indexOf(d.id) >= 0),
-          onclick: function () { toggleDescriptor(d.id); }
-        }, [d.de]));
+
+  /** Draws the static compass into an SVG and returns an updater for the dynamic layer. */
+  function buildCompass(root, opts) {
+    opts = opts || {};
+    var gid = 'zoneGrad' + (opts.small ? 'S' + Math.random().toString(36).slice(2, 6) : '');
+    var defs = svg('defs', {}, [
+      svg('radialGradient', { id: gid }, [
+        svg('stop', { offset: '0%', 'stop-color': 'var(--zone)', 'stop-opacity': '.38' }),
+        svg('stop', { offset: '100%', 'stop-color': 'var(--zone)', 'stop-opacity': '.07' })
+      ])
+    ]);
+    root.appendChild(defs);
+    if (opts.small) root.appendChild(svg('rect', { x: -1.25, y: -1.25, width: 2.5, height: 2.5, fill: 'var(--inst)' }));
+    [0.25, 0.5, 1].forEach(function (r) { root.appendChild(svg('circle', { cx: 0, cy: 0, r: r, class: 'c-ring' })); });
+    root.appendChild(svg('line', { x1: -1.08, y1: 0, x2: 1.08, y2: 0, class: 'c-axis' }));
+    root.appendChild(svg('line', { x1: 0, y1: -1.08, x2: 0, y2: 1.08, class: 'c-axis' }));
+    root.appendChild(svg('circle', { cx: 0, cy: 0, r: E.GREEN_RADIUS, fill: 'url(#' + gid + ')' }));
+    root.appendChild(svg('circle', { cx: 0, cy: 0, r: E.GREEN_RADIUS, class: 'c-zone-edge' }));
+    root.appendChild(svg('circle', { cx: 0, cy: 0, r: E.SWEET_SPOT_RADIUS, class: 'c-sweet' }));
+
+    var words = {};
+    if (!opts.small) {
+      E.DESCRIPTORS.forEach(function (d) {
+        var t = svg('text', { x: d.x, y: -d.y + 0.016, class: 'c-word' });
+        t.textContent = d.de;
+        root.appendChild(t);
+        words[d.id] = t;
       });
-      box.appendChild(el('div', { class: 'chip-group ' + g.key }, [el('h3', { text: g.title }), wrap]));
-    });
-    if (taste.descriptors.length || taste.x !== null) {
-      box.appendChild(el('button', { class: 'link-btn', type: 'button', onclick: resetTaste }, ['Auswahl zurücksetzen']));
+      [['Stark', 0, -1.15, 0], ['Schwach', 0, 1.2, 0], ['Sauer', -1.16, 0, -90], ['Bitter', 1.16, 0, 90]].forEach(function (l) {
+        var t = svg('text', { x: l[1], y: l[2], class: 'c-label', transform: l[3] ? 'rotate(' + l[3] + ' ' + l[1] + ' ' + l[2] + ')' : null });
+        t.textContent = l[0];
+        root.appendChild(t);
+      });
     }
+
+    var dyn = svg('g');
+    root.appendChild(dyn);
+    var puck = svg('g', { class: 'c-puck', style: 'opacity:0' }, [
+      svg('circle', { r: 0.11, class: 'c-puck-halo' }),
+      svg('circle', { r: opts.small ? 0.07 : 0.05, class: 'c-puck-core' })
+    ]);
+    root.appendChild(puck);
+
+    return function update(pos, trail, selected, arrow) {
+      while (dyn.firstChild) dyn.removeChild(dyn.firstChild);
+      trail = trail || [];
+      if (trail.length > 1) {
+        dyn.appendChild(svg('polyline', { points: trail.map(function (p) { return p.x + ',' + (-p.y); }).join(' '), class: 'c-trail' }));
+      }
+      trail.slice(0, pos ? -1 : undefined).forEach(function (p) {
+        dyn.appendChild(svg('circle', { cx: p.x, cy: -p.y, r: opts.small ? 0.04 : 0.022, class: 'c-dot' }));
+      });
+      Object.keys(words).forEach(function (id) { words[id].classList.toggle('on', (selected || []).indexOf(id) >= 0); });
+
+      if (!pos) { puck.style.opacity = '0'; return; }
+      puck.style.opacity = '1';
+      puck.style.transform = 'translate(' + pos.x + 'px,' + (-pos.y) + 'px)';
+      if (arrow && E.zoneOf(pos) !== 'sweetspot') {
+        var len = Math.sqrt(pos.x * pos.x + pos.y * pos.y);
+        var reach = Math.min(len - 0.1, 0.42);
+        if (reach > 0.06) {
+          var ux = -pos.x / len, uy = -pos.y / len;
+          var sx = pos.x + ux * 0.08, sy = pos.y + uy * 0.08;
+          var ex = pos.x + ux * reach, ey = pos.y + uy * reach;
+          dyn.appendChild(svg('line', { x1: sx, y1: -sy, x2: ex, y2: -ey, class: 'c-arrow' }));
+          var hx = ex + ux * 0.06, hy = ey + uy * 0.06, px = -uy * 0.04, py = ux * 0.04;
+          dyn.appendChild(svg('polygon', {
+            points: hx + ',' + (-hy) + ' ' + (ex + px) + ',' + (-(ey + py)) + ' ' + (ex - px) + ',' + (-(ey - py)),
+            class: 'c-arrowhead'
+          }));
+        }
+      }
+    };
+  }
+
+  var mapEl = $('#map');
+  var updateCompass = buildCompass(mapEl);
+  var dragging = false, lastZone = null;
+
+  function pointToTaste(ev) {
+    var pt = mapEl.createSVGPoint();
+    pt.x = ev.clientX; pt.y = ev.clientY;
+    var loc = pt.matrixTransform(mapEl.getScreenCTM().inverse());
+    var x = Math.max(-1, Math.min(1, loc.x)), y = Math.max(-1, Math.min(1, -loc.y));
+    taste.x = x; taste.y = y;
+    var z = E.zoneOf({ x: x, y: y });
+    if (lastZone && z !== lastZone) U.tick('medium');
+    lastZone = z;
+  }
+  var raf = null;
+  mapEl.addEventListener('pointerdown', function (ev) {
+    dragging = true;
+    mapEl.classList.add('dragging');
+    try { mapEl.setPointerCapture(ev.pointerId); } catch (e) { /* ignore */ }
+    pointToTaste(ev);
+    update();
+  });
+  mapEl.addEventListener('pointermove', function (ev) {
+    if (!dragging) return;
+    pointToTaste(ev);
+    if (!raf) raf = requestAnimationFrame(function () { raf = null; update(); });
+  });
+  function endDrag() { if (!dragging) return; dragging = false; mapEl.classList.remove('dragging'); update(); }
+  mapEl.addEventListener('pointerup', endDrag);
+  mapEl.addEventListener('pointercancel', endDrag);
+
+  // ---------- taste chips ----------
+  var GROUPS = [
+    { key: 'under', title: 'Sauer' },
+    { key: 'over', title: 'Bitter' },
+    { key: 'weak', title: 'Zu schwach' },
+    { key: 'strong', title: 'Zu stark' },
+    { key: 'good', title: 'Gut' }
+  ];
+  function renderChips() {
+    var tabs = $('#taste-tabs');
+    tabs.innerHTML = '';
+    GROUPS.forEach(function (g) {
+      var n = taste.descriptors.filter(function (id) { return groupOf(E.findDescriptor(id)) === g.key; }).length;
+      tabs.appendChild(el('button', {
+        class: 'taste-tab ' + g.key, type: 'button', role: 'tab', 'aria-selected': String(activeGroup === g.key),
+        onclick: function () { activeGroup = g.key; renderChips(); }
+      }, [el('span', { class: 'dot' }), g.title, n ? el('span', { class: 'count', text: n }) : null]));
+    });
+    var box = $('#chips');
+    // Chips only animate in when the group changes, not on every value update.
+    var animate = box.dataset.group !== activeGroup;
+    box.dataset.group = activeGroup;
+    box.innerHTML = '';
+    E.DESCRIPTORS.filter(function (d) { return groupOf(d) === activeGroup; }).forEach(function (d, i) {
+      box.appendChild(el('button', {
+        class: 'chip' + (animate ? ' enter' : ''), type: 'button', title: d.en, style: animate ? 'animation-delay:' + (i * 18) + 'ms' : null,
+        'aria-pressed': String(taste.descriptors.indexOf(d.id) >= 0),
+        onclick: function () { toggleDescriptor(d.id); }
+      }, [d.de]));
+    });
+    $('#taste-reset').hidden = !(taste.descriptors.length || taste.x !== null);
   }
   function toggleDescriptor(id) {
     var i = taste.descriptors.indexOf(id);
     if (i >= 0) taste.descriptors.splice(i, 1); else taste.descriptors.push(id);
     var pos = E.positionFromDescriptors(taste.descriptors);
-    taste.manual = false;
     taste.x = pos ? pos.x : null;
     taste.y = pos ? pos.y : null;
+    U.tick('minor');
     update();
   }
   function resetTaste() {
-    taste = { x: null, y: null, descriptors: [], manual: false };
+    taste = { x: null, y: null, descriptors: [] };
+    lastZone = null;
     update();
   }
+  $('#taste-reset').addEventListener('click', resetTaste);
 
-  // ---------- recipe inputs ----------
-  var inputs = { dose: $('#in-dose'), yield: $('#in-yield'), time: $('#in-time'), grind: $('#in-grind') };
-  function fillInputs() {
-    Object.keys(inputs).forEach(function (k) { inputs[k].value = state.current[k] == null ? '' : state.current[k]; });
-    $('#set-step').value = state.settings.grindStep;
-    $('#set-direction').value = state.settings.direction;
-    document.querySelectorAll('input[name="keep"]').forEach(function (r) { r.checked = r.value === state.settings.keep; });
+  // ---------- recipe dials: tabs on top, one iOS-timer-like ruler below ----------
+  function grindScale() {
+    var st = Number(state.settings.grindStep) || 1;
+    return {
+      min: 0, max: Number(state.settings.grindMax) || 40, step: st,
+      majorEvery: st >= 1 ? st * 5 : 1, mediumEvery: st < 0.5 ? 0.5 : null
+    };
   }
-  Object.keys(inputs).forEach(function (k) {
-    inputs[k].addEventListener('input', function () {
-      state.current[k] = inputs[k].value === '' ? '' : Number(inputs[k].value);
-      save(); update();
+  function timeWindow() {
+    var p = profileById(state.current.beanId);
+    return p ? [p.timeMin, p.timeMax] : [25, 32];
+  }
+  var DIALS = {
+    dose: { label: 'Dosis', unit: 'g', min: 5, max: 30, step: 0.1, majorEvery: 1, mediumEvery: 0.5, fallback: 18,
+      describe: function (v) { return v < 12 ? 'Single-Sieb' : v <= 21 ? 'Doppeltes Sieb' : 'Triple-Sieb'; } },
+    yield: { label: 'Bezug', unit: 'g', min: 10, max: 90, step: 0.5, majorEvery: 5, mediumEvery: 1, fallback: 36,
+      describe: function (v) {
+        var r = state.current.dose ? v / state.current.dose : 2;
+        return '1:' + fmt(r, 1) + ' · ' + (r < 1.5 ? 'Ristretto' : r <= 2.5 ? 'Normale' : 'Lungo');
+      } },
+    time: { label: 'Zeit', unit: 's', min: 0, max: 60, step: 1, majorEvery: 5, fallback: 28,
+      describe: function (v, touched) {
+        if (!touched) return 'Wischen oder Shot-Timer';
+        var w = timeWindow();
+        return v < w[0] ? 'zu schnell' : v > w[1] ? 'zu langsam' : 'im Zielfenster';
+      } },
+    grind: { label: 'Mahlgrad', unit: '', fallback: 12,
+      describe: function (v, touched) { return touched ? 'Stufe ' + fmt(v, 2) : 'Wischen zum Einstellen'; } }
+  };
+  var DIAL_ORDER = ['dose', 'yield', 'time', 'grind'];
+  var activeKey = 'dose', dial = null;
+
+  function dialText(k) {
+    var v = state.current[k];
+    if (v === '' || v == null) return '–';
+    return fmt(v, k === 'grind' ? 2 : 1) + (DIALS[k].unit ? '\u202f' + DIALS[k].unit : '');
+  }
+  function renderDialTabs() {
+    var box = $('#dial-tabs');
+    box.innerHTML = '';
+    DIAL_ORDER.forEach(function (k) {
+      box.appendChild(el('button', {
+        class: 'dial-tab', type: 'button', role: 'tab', 'aria-selected': String(activeKey === k), 'data-key': k,
+        onclick: function () { if (activeKey !== k) { activeKey = k; U.tick('minor'); renderDialTabs(); mountDial(); } }
+      }, [el('span', { text: DIALS[k].label }), el('strong', { text: dialText(k) })]));
     });
+  }
+  function mountDial() {
+    var def = DIALS[activeKey];
+    var key = activeKey;
+    var scale = key === 'grind' ? grindScale() : def;
+    dial = window.TickDial({
+      label: def.label, unit: def.unit, value: state.current[key], fallback: def.fallback,
+      min: scale.min, max: scale.max, step: scale.step, majorEvery: scale.majorEvery, mediumEvery: scale.mediumEvery,
+      describe: def.describe,
+      onChange: function (v) {
+        state.current[key] = v;
+        save();
+        var tab = $('.dial-tab[data-key="' + key + '"] strong');
+        if (tab) tab.textContent = dialText(key);
+        update();
+      }
+    });
+    var slot = $('#dial-slot');
+    slot.innerHTML = '';
+    slot.appendChild(dial.el);
+  }
+  function flash(key) {
+    var b = $('.dial-tab[data-key="' + key + '"]');
+    if (!b) return;
+    b.classList.remove('flash'); void b.offsetWidth; b.classList.add('flash');
+  }
+
+  function fillInputs() {
+    renderDialTabs();
+    if (dial) dial.set(state.current[activeKey]); else mountDial();
+    $('#set-step').value = state.settings.grindStep;
+    $('#set-grindmax').value = state.settings.grindMax || 40;
+    $('#set-direction').value = state.settings.direction;
+    $$('input[name="keep"]').forEach(function (r) { r.checked = r.value === state.settings.keep; });
+  }
+  $('#set-step').addEventListener('input', function () {
+    state.settings.grindStep = Number(this.value) || 1; save(); update();
+    if (activeKey === 'grind') mountDial();
   });
-  $('#set-step').addEventListener('input', function () { state.settings.grindStep = Number(this.value) || 1; save(); update(); });
+  $('#set-grindmax').addEventListener('input', function () {
+    state.settings.grindMax = Math.max(1, Number(this.value) || 40); save();
+    if (activeKey === 'grind') mountDial();
+  });
   $('#set-direction').addEventListener('change', function () { state.settings.direction = this.value; save(); update(); });
-  document.querySelectorAll('input[name="keep"]').forEach(function (r) {
+  $$('input[name="keep"]').forEach(function (r) {
     r.addEventListener('change', function () { state.settings.keep = r.value; save(); update(); });
   });
+
+  // ---------- shot timer ----------
+  var timer = { running: false, start: 0, iv: null };
+  var timerBtn = $('#timer-btn');
+  function renderTimer(sec) {
+    timerBtn.innerHTML = '';
+    timerBtn.appendChild(U.icon(timer.running ? 'pause' : 'timer'));
+    timerBtn.appendChild(el('span', { class: timer.running ? 'mono' : '', text: timer.running ? sec.toFixed(1) + ' s' : 'Shot-Timer' }));
+    timerBtn.classList.toggle('running', timer.running);
+  }
+  timerBtn.addEventListener('click', function () {
+    if (!timer.running) {
+      timer.running = true;
+      timer.start = performance.now();
+      timer.iv = setInterval(function () { renderTimer((performance.now() - timer.start) / 1000); }, 100);
+      renderTimer(0);
+      U.tick('major');
+    } else {
+      var sec = Math.round((performance.now() - timer.start) / 1000);
+      clearInterval(timer.iv);
+      timer.running = false;
+      state.current.time = sec;
+      activeKey = 'time';
+      renderDialTabs(); mountDial();
+      flash('time');
+      renderTimer(0);
+      U.tick('major');
+      save(); update();
+      toast('Zeit übernommen: ' + sec + ' s');
+    }
+  });
+  renderTimer(0);
 
   function recipe() {
     return {
@@ -226,35 +367,35 @@
     sel.innerHTML = '';
     sel.appendChild(el('option', { value: '' }, ['Ohne Profil (Standard 1:2, 25–32 s)']));
     state.profiles.forEach(function (p) {
-      sel.appendChild(el('option', { value: p.id }, [p.name + (p.roaster && p.roaster !== 'Vorlage' ? ' – ' + p.roaster : '')]));
+      sel.appendChild(el('option', { value: p.id }, [p.name + (p.roaster && p.roaster !== 'Vorlage' ? ' · ' + p.roaster : '')]));
     });
     sel.value = profileById(state.current.beanId) ? state.current.beanId : '';
     renderTarget();
   }
-  $('#bean-select').addEventListener('change', function () {
-    state.current.beanId = this.value;
-    var p = profileById(this.value);
-    var last = lastShotFor(this.value);
+  $('#bean-select').addEventListener('change', function () { selectBean(this.value); });
+  function selectBean(id) {
+    state.current.beanId = id;
+    var p = profileById(id);
+    var last = lastShotFor(id);
     if (last && last.next) {
       state.current.dose = last.next.dose; state.current.yield = last.next.yield;
-      state.current.grind = last.next.grind == null ? '' : last.next.grind;
+      state.current.grind = last.next.grind == null ? state.current.grind : last.next.grind;
     } else if (p) {
       state.current.dose = p.dose; state.current.yield = p.yield;
       if (p.grind != null) state.current.grind = p.grind;
     }
     state.current.time = '';
-    save(); fillInputs(); resetTaste(); renderTarget();
-  });
+    save(); fillInputs(); renderBeanSelect(); resetTaste();
+  }
   function renderTarget() {
     var p = profileById(state.current.beanId);
     var box = $('#bean-target');
     box.hidden = !p;
     if (!p) return;
     box.innerHTML = '';
-    [['Ziel', fmt(p.dose) + ' g → ' + fmt(p.yield) + ' g'], ['Zeit', p.timeMin + '–' + p.timeMax + ' s'],
-     p.temp ? ['Temp.', fmt(p.temp) + ' °C'] : null, ['Röstung', p.roast], p.grind != null ? ['Dein Mahlgrad', fmt(p.grind, 2)] : null]
-      .forEach(function (kv) { if (kv) box.appendChild(el('span', {}, [kv[0] + ' ', el('b', { text: kv[1] })])); });
-    if (p.notes) box.appendChild(el('span', {}, [p.notes]));
+    [['Ziel', fmt(p.dose) + ' → ' + fmt(p.yield) + ' g'], ['Zeit', p.timeMin + '–' + p.timeMax + ' s'],
+      p.temp ? ['', fmt(p.temp) + ' °C'] : null, ['Röstung', p.roast], p.grind != null ? ['Dein Mahlgrad', fmt(p.grind, 2)] : null]
+      .forEach(function (kv) { if (kv) box.appendChild(el('span', { class: 'tag' }, [kv[0] ? kv[0] + ' ' : '', el('b', { text: kv[1] })])); });
   }
   function lastShotFor(beanId) {
     for (var i = state.shots.length - 1; i >= 0; i--) if ((state.shots[i].beanId || '') === (beanId || '')) return state.shots[i];
@@ -266,6 +407,8 @@
     var c = state.current;
     var ratio = c.dose && c.yield ? c.yield / c.dose : null;
     $('#ratio-out').textContent = ratio ? '1:' + fmt(ratio, 2) : '–';
+    // Track spans 1:1 … 1:3.
+    $('#ratio-marker').style.left = ratio ? Math.max(1, Math.min(99, (ratio - 1) / 2 * 100)) + '%' : '50%';
 
     var profile = profileById(c.beanId);
     var issues = E.checkAgainstProfile(c, profile);
@@ -280,48 +423,64 @@
     var trail = state.shots.filter(function (s) { return (s.beanId || '') === (c.beanId || ''); }).slice(-6)
       .map(function (s) { return { x: s.x, y: s.y }; });
     if (hasTaste) trail.push({ x: taste.x, y: taste.y });
-    drawMap(mapEl, { pos: hasTaste ? { x: taste.x, y: taste.y } : null, trail: trail, arrow: true, words: true });
+    updateCompass(hasTaste ? { x: taste.x, y: taste.y } : null, trail, taste.descriptors, true);
 
     renderResult(hasTaste ? E.recommend(recipe(), { x: taste.x, y: taste.y, descriptors: taste.descriptors }, profile) : null);
   }
 
+  var ACTION_ICON = { grind: '±', ratio: '1:', temp: '°C', prep: '!', done: '✓' };
+
   function renderResult(r) {
+    var prevZone = lastResult && lastResult.zone;
     lastResult = r;
     var body = $('#result-body');
+    var badge = $('#zone-badge');
     body.innerHTML = '';
+    badge.className = '';
+    badge.textContent = '';
     if (!r) {
-      body.appendChild(el('p', { class: 'hint', text: 'Sobald du den Geschmack angibst, bekommst du hier deine Empfehlung.' }));
+      body.appendChild(el('div', { class: 'empty-state', html:
+        '<svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2"><circle cx="24" cy="24" r="20"/><circle cx="24" cy="24" r="8" stroke-dasharray="3 3"/><path d="M24 4v6M24 38v6M4 24h6M38 24h6"/></svg>' +
+        '<p>Markiere den Geschmack deines Shots. Hier erscheinen dann die Werte für den nächsten Versuch.</p>' }));
       return;
     }
-    var zoneText = { sweetspot: 'Im Zentrum – perfekt', green: 'Im grünen Bereich – Feinschliff', off: 'Außerhalb – korrigieren' }[r.zone];
-    body.appendChild(el('span', { class: 'zone-badge zone-' + r.zone, text: zoneText }));
-
-    var ul = el('ul', { class: 'actions' });
-    r.actions.forEach(function (a) {
-      ul.appendChild(el('li', { class: a.kind }, [el('strong', { text: a.title }), el('p', { text: a.detail })]));
-    });
-    if (!r.actions.length) {
-      ul.appendChild(el('li', {}, [el('strong', { text: 'Fast da' }), el('p', { text: 'Nur minimale Abweichung – wiederhole den Shot einmal unverändert, um sicherzugehen.' })]));
-    }
-    body.appendChild(ul);
+    badge.className = 'zone-badge zone-' + r.zone;
+    badge.textContent = { sweetspot: 'Im Zentrum', green: 'Grüner Bereich', off: 'Korrigieren' }[r.zone];
+    if (r.zone === 'sweetspot' && prevZone !== 'sweetspot') U.tick('major');
 
     var c = state.current, n = r.next;
-    var rows = [
-      ['Mahlgrad', c.grind === '' ? '–' : fmt(c.grind, 2),
-        n.grind == null ? (n.grindSteps ? (n.grindSteps > 0 ? Math.abs(n.grindSteps) + ' feiner' : Math.abs(n.grindSteps) + ' gröber') : '=') : fmt(n.grind, 2),
-        n.grindSteps !== 0],
-      ['Dosis', fmt(c.dose) + ' g', fmt(n.dose) + ' g', Number(c.dose) !== n.dose],
-      ['Bezug', fmt(c.yield) + ' g', fmt(n.yield) + ' g', Number(c.yield) !== n.yield],
-      ['Verhältnis', c.dose && c.yield ? '1:' + fmt(c.yield / c.dose, 2) : '–', '1:' + fmt(n.ratio, 2), c.dose && Math.abs(c.yield / c.dose - n.ratio) > 0.02],
-      ['Zeit', c.time ? fmt(c.time, 0) + ' s' : '–', n.targetTime ? '≈ ' + n.targetTime + ' s' : n.timeMin + '–' + n.timeMax + ' s', false]
+    var grindVal = n.grind == null
+      ? (n.grindSteps ? Math.abs(n.grindSteps) + (n.grindSteps > 0 ? ' feiner' : ' gröber') : '=')
+      : fmt(n.grind, 2);
+    var tiles = [
+      { k: 'Mahlgrad', v: grindVal, from: c.grind === '' || c.grind == null ? null : fmt(c.grind, 2),
+        delta: n.grindSteps ? (n.grindSteps > 0 ? Math.abs(n.grindSteps) + ' feiner' : Math.abs(n.grindSteps) + ' gröber') : null, changed: n.grindSteps !== 0 },
+      { k: 'Dosis', v: fmt(n.dose) + ' g', from: fmt(c.dose) + ' g', delta: diff(n.dose, c.dose, 'g'), changed: Number(c.dose) !== n.dose },
+      { k: 'Bezug', v: fmt(n.yield) + ' g', from: fmt(c.yield) + ' g · 1:' + fmt(n.ratio, 2), delta: diff(n.yield, c.yield, 'g'), changed: Number(c.yield) !== n.yield },
+      { k: 'Zielzeit', v: n.targetTime ? '≈ ' + n.targetTime + ' s' : n.timeMin + '–' + n.timeMax + ' s', from: c.time ? 'zuletzt ' + c.time + ' s' : null, changed: false }
     ];
-    var table = el('table', { class: 'next-recipe' }, [
-      el('thead', {}, [el('tr', {}, [el('th', { text: '' }), el('th', { text: 'Jetzt' }), el('th', { text: 'Nächster Shot' })])]),
-      el('tbody', {}, rows.map(function (row) {
-        return el('tr', {}, [el('th', { text: row[0] }), el('td', { text: row[1] }), el('td', { class: row[3] ? 'changed' : '', text: row[2] })]);
-      }))
-    ]);
-    body.appendChild(table);
+    var grid = el('div', { class: 'next-tiles' });
+    tiles.forEach(function (t, i) {
+      grid.appendChild(el('div', { class: 'next-tile' + (t.changed ? ' changed' : ''), style: 'animation-delay:' + (i * 50) + 'ms' }, [
+        el('span', { class: 'label', text: t.k }),
+        el('div', { class: 'val' }, [t.v, t.delta && t.k !== 'Mahlgrad' ? el('span', { class: 'delta', text: t.delta }) : null]),
+        t.from ? el('div', { class: 'from', text: t.k === 'Zielzeit' ? t.from : 'vorher ' + t.from }) : null
+      ]));
+    });
+    body.appendChild(grid);
+
+    var ul = el('ul', { class: 'actions' });
+    r.actions.forEach(function (a, i) {
+      ul.appendChild(el('li', { class: a.kind, style: 'animation-delay:' + (200 + i * 70) + 'ms' }, [
+        el('span', { class: 'ico', text: ACTION_ICON[a.kind] || '•' }),
+        el('div', {}, [el('strong', { text: a.title }), el('p', { text: a.detail })])
+      ]));
+    });
+    if (!r.actions.length) {
+      ul.appendChild(el('li', { class: 'done' }, [el('span', { class: 'ico', text: '≈' }),
+        el('div', {}, [el('strong', { text: 'Fast da' }), el('p', { text: 'Nur minimale Abweichung. Wiederhole den Shot einmal unverändert.' })])]));
+    }
+    body.appendChild(ul);
 
     if (r.notes.length) {
       var notes = el('ul', { class: 'notes' });
@@ -331,12 +490,17 @@
 
     var actions = el('div', { class: 'row-actions' });
     if (r.zone === 'sweetspot') {
-      actions.appendChild(el('button', { class: 'btn', type: 'button', onclick: saveAsTarget }, ['Als Rezept für diese Bohne speichern']));
+      actions.appendChild(el('button', { class: 'btn accent', type: 'button', onclick: saveAsTarget }, ['Rezept für diese Bohne speichern']));
     } else {
-      actions.appendChild(el('button', { class: 'btn', type: 'button', onclick: logAndApply }, ['Shot speichern & Rezept übernehmen']));
+      actions.appendChild(el('button', { class: 'btn accent', type: 'button', onclick: logAndApply }, ['Übernehmen & nächster Shot', U.icon('arrow')]));
     }
     actions.appendChild(el('button', { class: 'btn ghost', type: 'button', onclick: logOnly }, ['Nur speichern']));
     body.appendChild(actions);
+  }
+  function diff(a, b, unit) {
+    var d = Math.round((Number(a) - Number(b)) * 10) / 10;
+    if (!d) return null;
+    return (d > 0 ? '+' : '−') + fmt(Math.abs(d)) + ' ' + unit;
   }
 
   function logShot() {
@@ -355,8 +519,9 @@
     state.current.dose = n.dose; state.current.yield = n.yield; state.current.time = '';
     if (n.grind != null) state.current.grind = n.grind;
     save(); fillInputs(); resetTaste();
-    toast('Gespeichert. Zieh jetzt den nächsten Shot mit dem neuen Rezept.');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
+    ['dose', 'yield', 'grind'].forEach(flash);
+    toast('Neues Rezept übernommen. Zieh den nächsten Shot.');
+    $('.area-recipe').scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
   function saveAsTarget() {
     logShot();
@@ -370,73 +535,108 @@
     }
     p.dose = Number(c.dose); p.yield = Number(c.yield);
     if (c.time) { p.timeMin = Math.max(15, Number(c.time) - 2); p.timeMax = Number(c.time) + 2; }
-    if (c.grind !== '') p.grind = Number(c.grind);
+    if (c.grind !== '' && c.grind != null) p.grind = Number(c.grind);
     save(); renderBeanSelect(); resetTaste();
-    toast('Rezept gespeichert – „' + p.name + '“.');
+    toast('Gespeichert in „' + p.name + '“.');
   }
 
-  // ---------- beans tab ----------
+  // ---------- beans view ----------
   var editingId = null;
   function renderBeans() {
     var list = $('#bean-list');
     list.innerHTML = '';
-    if (!state.profiles.length) list.appendChild(el('p', { class: 'hint', text: 'Noch keine Profile.' }));
-    state.profiles.forEach(function (p) {
-      var shots = state.shots.filter(function (s) { return s.beanId === p.id; }).length;
-      list.appendChild(el('article', { class: 'bean-item' }, [
-        el('header', {}, [el('strong', { text: p.name }), el('span', { class: 'tag', text: p.roast })]),
-        el('div', { class: 'meta', text: [p.roaster, fmt(p.dose) + ' g → ' + fmt(p.yield) + ' g', p.timeMin + '–' + p.timeMax + ' s',
-          p.temp ? fmt(p.temp) + ' °C' : '', shots ? shots + ' Shots' : ''].filter(Boolean).join(' · ') }),
-        p.notes ? el('div', { class: 'meta', text: p.notes }) : null,
+    if (!state.profiles.length) list.appendChild(el('p', { class: 'muted', text: 'Noch keine Profile. Lege eins an oder importiere einen Link.' }));
+    state.profiles.forEach(function (p, i) {
+      var shots = state.shots.filter(function (s) { return s.beanId === p.id; });
+      var card = el('article', { class: 'panel bean', style: 'animation: rise .35s ease both; animation-delay:' + (i * 40) + 'ms' }, [
+        el('header', {}, [
+          el('div', {}, [el('h3', { text: p.name }), p.roaster ? el('div', { class: 'roaster', text: p.roaster }) : null]),
+          el('span', { class: 'roast-dot roast-' + p.roast }, [el('i'), p.roast])
+        ]),
+        el('div', { class: 'stat-row' }, [
+          el('span', { class: 'stat', text: fmt(p.dose) + ' → ' + fmt(p.yield) + ' g' }),
+          el('span', { class: 'stat', text: p.timeMin + '–' + p.timeMax + ' s' }),
+          p.temp ? el('span', { class: 'stat', text: fmt(p.temp) + ' °C' }) : null,
+          p.grind != null ? el('span', { class: 'stat', text: 'Mahlgrad ' + fmt(p.grind, 2) }) : null
+        ]),
+        p.notes ? el('p', { class: 'muted', style: 'margin:0;font-size:.9rem', text: p.notes }) : null,
         el('div', { class: 'row-actions' }, [
-          el('button', { class: 'btn small', type: 'button', onclick: function () { useBean(p.id); } }, ['Einstellen']),
+          el('button', { class: 'btn small accent', type: 'button', onclick: function () { showView('espresso'); selectBean(p.id); } }, ['Einstellen']),
           el('button', { class: 'btn small ghost', type: 'button', onclick: function () { editBean(p.id); } }, ['Bearbeiten']),
-          el('button', { class: 'btn small ghost', type: 'button', onclick: function () { shareBean(p); } }, ['Link teilen']),
-          el('button', { class: 'btn small ghost', type: 'button', onclick: function () { deleteBean(p.id); } }, ['Löschen'])
+          el('button', { class: 'btn small ghost', type: 'button', onclick: function () { shareBean(p); } }, [U.icon('share'), 'Teilen']),
+          el('button', { class: 'btn small ghost', type: 'button', onclick: function (ev) { deleteBean(p.id, ev.currentTarget); } }, ['Löschen'])
         ])
-      ]));
+      ]);
+      if (shots.length) card.appendChild(historyBlock(shots));
+      list.appendChild(card);
     });
+    var loose = state.shots.filter(function (s) { return !s.beanId; });
+    if (loose.length) {
+      list.appendChild(el('article', { class: 'panel bean' }, [
+        el('header', {}, [el('h3', { text: 'Ohne Profil' })]),
+        historyBlock(loose)
+      ]));
+    }
   }
-  function useBean(id) {
-    showTab('dial');
-    var sel = $('#bean-select');
-    sel.value = id;
-    sel.dispatchEvent(new Event('change'));
+  function historyBlock(shots) {
+    var details = el('details', { class: 'bean-history' }, [el('summary', { text: 'Verlauf · ' + shots.length + ' Shot' + (shots.length > 1 ? 's' : '') })]);
+    details.addEventListener('toggle', function () {
+      if (!details.open || details.dataset.ready) return;
+      details.dataset.ready = '1';
+      var mini = svg('svg', { viewBox: '-1.25 -1.25 2.5 2.5', role: 'img', 'aria-label': 'Verlauf auf dem Kompass' });
+      details.appendChild(mini);
+      var trail = shots.map(function (s) { return { x: s.x, y: s.y }; });
+      buildCompass(mini, { small: true })(trail[trail.length - 1], trail, [], false);
+      var ol = el('ol', { class: 'history-list' });
+      shots.slice().reverse().forEach(function (s) {
+        var words = s.descriptors.map(function (id) { var d = E.findDescriptor(id); return d ? d.de : id; }).join(', ');
+        ol.appendChild(el('li', {}, [
+          el('span', { class: 'mono', text: fmt(s.dose) + '→' + fmt(s.yield) + ' g' + (s.time ? ' · ' + s.time + ' s' : '') + (s.grind !== '' && s.grind != null ? ' · M ' + fmt(s.grind, 2) : '') }),
+          el('span', { class: 'muted', text: new Date(s.at).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }) + (words ? ' · ' + words : '') })
+        ]));
+      });
+      details.appendChild(ol);
+    });
+    return details;
   }
+  var BEAN_FIELDS = { name: 'bf-name', roaster: 'bf-roaster', dose: 'bf-dose', yield: 'bf-yield', timeMin: 'bf-tmin', timeMax: 'bf-tmax', temp: 'bf-temp', roast: 'bf-roast', notes: 'bf-notes' };
   function editBean(id) {
     editingId = id;
     var p = id ? profileById(id) : { name: '', roaster: '', dose: 18, yield: 36, timeMin: 25, timeMax: 30, temp: 93, roast: 'mittel', notes: '' };
-    var f = $('#bean-form');
-    ['name', 'roaster', 'dose', 'yield', 'timeMin', 'timeMax', 'temp', 'roast', 'notes'].forEach(function (k) {
-      f.elements[k].value = p[k] == null ? '' : p[k];
-    });
+    Object.keys(BEAN_FIELDS).forEach(function (k) { $('#' + BEAN_FIELDS[k]).value = p[k] == null ? '' : p[k]; });
     $('#bean-form-title').textContent = id ? 'Profil bearbeiten' : 'Neues Profil';
     $('#bean-form-card').hidden = false;
     $('#bean-import-card').hidden = true;
-    f.elements.name.focus();
+    $('#bean-form-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    $('#bf-name').focus({ preventScroll: true });
   }
-  function deleteBean(id) {
-    var p = profileById(id);
-    if (!confirm('Profil „' + p.name + '“ und seinen Verlauf löschen?')) return;
+  // Two-step delete: first click arms the button, second click deletes.
+  function deleteBean(id, btn) {
+    if (btn.dataset.armed !== '1') {
+      btn.dataset.armed = '1';
+      btn.textContent = 'Wirklich löschen?';
+      setTimeout(function () { if (btn.isConnected) { btn.dataset.armed = ''; btn.textContent = 'Löschen'; } }, 4000);
+      return;
+    }
     state.profiles = state.profiles.filter(function (x) { return x.id !== id; });
     state.shots = state.shots.filter(function (s) { return s.beanId !== id; });
     if (state.current.beanId === id) state.current.beanId = '';
-    save(); renderBeans();
+    save(); renderBeans(); renderBeanSelect();
+    toast('Profil gelöscht.');
   }
   $('#bean-new').addEventListener('click', function () { editBean(null); });
   $('#bean-cancel').addEventListener('click', function () { $('#bean-form-card').hidden = true; });
   $('#bean-form').addEventListener('submit', function (ev) {
     ev.preventDefault();
-    var f = ev.target, data = {};
-    ['name', 'roaster', 'roast', 'notes'].forEach(function (k) { data[k] = f.elements[k].value; });
-    data.recipe = {};
-    ['dose', 'yield', 'timeMin', 'timeMax', 'temp'].forEach(function (k) { data.recipe[k] = f.elements[k].value; });
+    var data = { recipe: {} };
+    ['name', 'roaster', 'roast', 'notes'].forEach(function (k) { data[k] = $('#' + BEAN_FIELDS[k]).value; });
+    ['dose', 'yield', 'timeMin', 'timeMax', 'temp'].forEach(function (k) { data.recipe[k] = $('#' + BEAN_FIELDS[k]).value; });
     try {
       var p = E.parseProfile(data);
       var old = editingId ? profileById(editingId) : null;
       if (old) { p.id = old.id; p.grind = old.grind; state.profiles[state.profiles.indexOf(old)] = p; }
       else { p.id = uniqueId(p.id); state.profiles.push(p); }
-      save(); $('#bean-form-card').hidden = true; renderBeans(); toast('Profil gespeichert.');
+      save(); $('#bean-form-card').hidden = true; renderBeans(); renderBeanSelect(); toast('Profil gespeichert.');
     } catch (e) { toast(e.message); }
   });
   function uniqueId(id) {
@@ -455,22 +655,24 @@
     return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
   }
   function decodeProfile(str) {
-    var b64 = str.replace(/-/g, '+').replace(/_/g, '/');
-    var bin = atob(b64);
+    var bin = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
     var bytes = new Uint8Array(bin.length);
     for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
     return E.parseProfile(new TextDecoder().decode(bytes));
   }
   function shareBean(p) {
     var url = location.origin + location.pathname + '#bean=' + encodeProfile(p);
-    if (navigator.share) {
-      navigator.share({ title: p.name, text: 'Espresso-Rezept für ' + p.name, url: url }).catch(function () {});
-    } else if (navigator.clipboard) {
-      navigator.clipboard.writeText(url).then(function () { toast('Link kopiert.'); }, function () { prompt('Link kopieren:', url); });
+    $('#share-name').textContent = p.name;
+    $('#share-url').value = url;
+    $('#share-box').hidden = false;
+    $('#share-box').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(url).then(function () { toast('Link kopiert.'); }, function () { $('#share-url').select(); });
     } else {
-      prompt('Link kopieren:', url);
+      $('#share-url').select();
     }
   }
+  $('#share-close').addEventListener('click', function () { $('#share-box').hidden = true; });
   function importProfile(p) {
     p.id = uniqueId(p.id);
     state.profiles.push(p);
@@ -491,63 +693,44 @@
   $('#import-go').addEventListener('click', function () {
     try {
       importProfile(parseImportText($('#import-text').value));
-      $('#import-text').value = ''; $('#bean-import-card').hidden = true; renderBeans();
+      $('#import-text').value = ''; $('#bean-import-card').hidden = true; renderBeans(); renderBeanSelect();
     } catch (e) {
       $('#import-error').textContent = 'Import fehlgeschlagen: ' + e.message; $('#import-error').hidden = false;
     }
   });
   $('#import-file').addEventListener('change', function () {
     var file = this.files[0];
-    if (!file) return;
-    file.text().then(function (t) { $('#import-text').value = t; });
+    if (file) file.text().then(function (t) { $('#import-text').value = t; });
   });
+  // A shared profile link prefills the import card so the user confirms in the page.
   function handleHash() {
     var m = location.hash.match(/^#bean=([A-Za-z0-9_-]+)/);
-    if (!m) return;
-    history.replaceState(null, '', location.pathname + location.search);
-    try {
-      var p = decodeProfile(m[1]);
-      if (confirm('Bohnen-Profil „' + p.name + '“ (' + p.dose + ' g → ' + p.yield + ' g, ' + p.timeMin + '–' + p.timeMax + ' s) importieren?')) {
-        var added = importProfile(p);
-        useBean(added.id);
-      }
-    } catch (e) { toast('Profil-Link ungültig: ' + e.message); }
+    if (m) {
+      showView('beans');
+      $('#bean-import-card').hidden = false;
+      $('#bean-form-card').hidden = true;
+      $('#import-text').value = location.origin + location.pathname + m[0];
+      $('#import-error').hidden = true;
+      return true;
+    }
+    var v = location.hash.slice(1);
+    if (VIEWS.some(function (x) { return x.id === v; })) { showView(v); return true; }
+    return false;
   }
 
-  // ---------- history tab ----------
-  function renderHistory() {
-    var sel = $('#history-bean');
-    var prev = sel.value || state.current.beanId || '';
-    sel.innerHTML = '';
-    sel.appendChild(el('option', { value: '' }, ['Ohne Profil']));
-    state.profiles.forEach(function (p) { sel.appendChild(el('option', { value: p.id }, [p.name])); });
-    sel.value = prev;
-    if (sel.value !== prev) sel.value = '';
-    var shots = state.shots.filter(function (s) { return (s.beanId || '') === sel.value; });
-    drawMap($('#history-map'), {
-      trail: shots.map(function (s) { return { x: s.x, y: s.y }; }),
-      pos: shots.length ? { x: shots[shots.length - 1].x, y: shots[shots.length - 1].y } : null,
-      trailIncludesPos: false
-    });
-    var list = $('#history-list');
-    list.innerHTML = '';
-    if (!shots.length) { list.appendChild(el('p', { class: 'hint', text: 'Noch keine Shots für diese Bohne.' })); return; }
-    shots.forEach(function (s) {
-      var words = s.descriptors.map(function (id) { var d = E.findDescriptor(id); return d ? d.de : id; }).join(', ');
-      list.appendChild(el('li', {}, [
-        el('div', { text: fmt(s.dose) + ' g → ' + fmt(s.yield) + ' g' + (s.time ? ' in ' + s.time + ' s' : '') + (s.grind !== '' && s.grind != null ? ' · Mahlgrad ' + fmt(s.grind, 2) : '') }),
-        el('div', { class: 'meta', text: new Date(s.at).toLocaleString('de-DE', { dateStyle: 'short', timeStyle: 'short' }) +
-          ' · ' + ({ sweetspot: 'perfekt', green: 'gut', off: 'korrigieren' }[s.zone]) + (words ? ' · ' + words : '') })
-      ]));
-    });
-  }
-  $('#history-bean').addEventListener('change', renderHistory);
+  onView('beans', renderBeans);
+  onView('espresso', function () { renderBeanSelect(); update(); });
+
+  // Shared with brew-ui.js and cafes-ui.js.
+  window.App = { state: state, save: save, showView: showView, onView: onView };
 
   // ---------- boot ----------
   fillInputs();
   renderBeanSelect();
   update();
-  handleHash();
+  document.addEventListener('DOMContentLoaded', function () {
+    if (!handleHash()) showView(state.view || 'espresso', { keepScroll: true });
+  });
   window.addEventListener('hashchange', handleHash);
   if ('serviceWorker' in navigator && location.protocol.indexOf('http') === 0) {
     navigator.serviceWorker.register('sw.js').catch(function () {});
