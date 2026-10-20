@@ -459,11 +459,16 @@
   // =====================================================================
   // List of rated coffees
   // =====================================================================
+  function hasExamples() { return state.ratings.some(function (r) { return r.example; }); }
+
   function renderList() {
     var box = $('#coffee-list');
     box.innerHTML = '';
+    $('#examples-btn').textContent = hasExamples() ? 'Beispiele entfernen' : 'Beispielkaffees laden';
     if (!state.ratings.length) {
-      box.appendChild(el('p', { class: 'muted', text: 'Noch keine Kaffees bewertet.' }));
+      box.appendChild(el('div', { class: 'empty-state' }, [
+        el('p', { text: 'Noch keine Kaffees bewertet. Bewerte deinen ersten Kaffee oder lade fünf Beispielkaffees, um alles auszuprobieren.' })
+      ]));
       return;
     }
     state.ratings.slice().sort(function (a, b) { return b.rating - a.rating; }).forEach(function (r, i) {
@@ -472,7 +477,7 @@
       box.appendChild(el('article', { class: 'coffee-card', style: 'animation-delay:' + Math.min(i, 10) * 40 + 'ms' }, [
         el('div', { class: 'score', style: '--p:' + r.rating * 10 }, [el('span', { class: 'mono', text: fmt(r.rating) })]),
         el('div', { class: 'coffee-main' }, [
-          el('h3', { text: r.name || r.roaster }),
+          el('h3', {}, [r.name || r.roaster, r.example ? el('span', { class: 'tag example-tag', text: 'Beispiel' }) : null]),
           el('div', { class: 'meta', text: [r.name ? r.roaster : '', r.origin, r.process, r.method].filter(Boolean).join(' · ') }),
           dots,
           r.notes ? el('p', { class: 'muted', text: r.notes }) : null,
@@ -499,6 +504,24 @@
   }
 
   $('#rate-new').addEventListener('click', function () { openFlow(null); });
+
+  // Load or remove the example ratings (only entries marked example: true).
+  $('#examples-btn').addEventListener('click', function () {
+    if (hasExamples()) {
+      state.ratings = state.ratings.filter(function (r) { return !r.example; });
+      toast('Beispiele entfernt. Deine eigenen Bewertungen bleiben.');
+    } else {
+      state.ratings = state.ratings.concat(T.exampleRatings());
+      toast('5 Beispielkaffees geladen.');
+    }
+    App.state.ratings = state.ratings;
+    App.save();
+    U.tick('medium');
+    focusFamily = null;
+    renderOverview(true);
+    renderList();
+    $('#flavor-wheel').scrollIntoView({ behavior: 'smooth', block: 'center' });
+  });
 
   App.onView('taste', function () { renderOverview(true); renderList(); });
   initScanner();
