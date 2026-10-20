@@ -55,3 +55,20 @@ test('parseScan maps notes and process', () => {
   assert.strictEqual(r.roast, 'hell');
   assert.strictEqual(T.parseScan({ is_coffee: false }).isCoffee, false);
 });
+
+test('example ratings are valid and marked', () => {
+  const ex = T.exampleRatings(Date.UTC(2026, 9, 20));
+  assert.strictEqual(ex.length, 5);
+  for (const r of ex) {
+    assert.strictEqual(r.example, true);
+    assert.ok(r.rating >= 0 && r.rating <= 10);
+    for (const a of r.aromas) assert.ok(T.AROMA_FAMILY[a], a + ' is a known aroma');
+    for (const k of Object.keys(r.structure)) assert.ok(T.STRUCTURE.some(s => s.id === k));
+  }
+  const p = T.profile(ex);
+  assert.ok(p.topFamily);
+  assert.ok(Object.keys(p.structure).length >= 3, 'favourite profile radar has data');
+  // copies, not shared objects
+  ex[0].aromas.push('Zimt');
+  assert.ok(!T.exampleRatings()[0].aromas.includes('Zimt'));
+});

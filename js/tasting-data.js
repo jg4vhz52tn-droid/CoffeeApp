@@ -31,6 +31,44 @@
   ];
 
   var PROCESSES = ['Gewaschen', 'Natural', 'Honey', 'Anaerob', 'Andere'];
+
+  // Example ratings to try the tasting view. Roasters are made up; every entry
+  // carries example: true so the user can remove them again in one go.
+  var EXAMPLES = [
+    { id: 'beispiel-guji', roaster: 'Beispielrösterei Nord', name: 'Guji Hambela', origin: 'Äthiopien', region: 'Guji', variety: 'Heirloom',
+      process: 'Gewaschen', roast: 'hell', method: 'V60', aromas: ['Jasmin', 'Bergamotte', 'Pfirsich', 'Himbeere'],
+      structure: { acidity: 7.5, sweetness: 6.5, body: 4, bitterness: 1.5, finish: 7 }, rating: 9,
+      notes: 'Wie Früchtetee mit Honig. Abgekühlt noch besser.', daysAgo: 3 },
+    { id: 'beispiel-nyeri', roaster: 'Beispielrösterei Nord', name: 'Nyeri AA', origin: 'Kenia', region: 'Nyeri', variety: 'SL28, SL34',
+      process: 'Gewaschen', roast: 'hell', method: 'AeroPress', aromas: ['Johannisbeere', 'Grapefruit', 'Brauner Zucker'],
+      structure: { acidity: 8.5, sweetness: 5.5, body: 5, bitterness: 2.5, finish: 7.5 }, rating: 8.5,
+      notes: 'Sehr saftig, fast wie Saft von schwarzen Johannisbeeren.', daysAgo: 9 },
+    { id: 'beispiel-huila', roaster: 'Kaffeehaus Beispiel', name: 'Huila Anaerobic', origin: 'Kolumbien', region: 'Huila', variety: 'Caturra',
+      process: 'Anaerob', roast: 'mittel', method: 'Espresso', aromas: ['Erdbeere', 'Rum', 'Kakao', 'Brauner Zucker'],
+      structure: { acidity: 6, sweetness: 7.5, body: 6.5, bitterness: 3, finish: 8 }, rating: 8,
+      notes: 'Wild und süß, als Espresso wie Erdbeer-Schokolade.', daysAgo: 14 },
+    { id: 'beispiel-cerrado', roaster: 'Kaffeehaus Beispiel', name: 'Cerrado Mineiro', origin: 'Brasilien', region: 'Cerrado', variety: 'Mundo Novo',
+      process: 'Natural', roast: 'mittel', method: 'Espresso', aromas: ['Haselnuss', 'Milchschokolade', 'Karamell'],
+      structure: { acidity: 3, sweetness: 6.5, body: 7.5, bitterness: 4, finish: 6 }, rating: 7,
+      notes: 'Solide für Cappuccino, pur etwas langweilig.', daysAgo: 21 },
+    { id: 'beispiel-italia', roaster: 'Beispiel Torrefazione', name: 'Miscela Classica', origin: 'Mischung', region: '', variety: '',
+      process: 'Natural', roast: 'dunkel', method: 'Mokkakanne', aromas: ['Zartbitter', 'Rauch', 'Getreide'],
+      structure: { acidity: 1.5, sweetness: 3, body: 8.5, bitterness: 7.5, finish: 5 }, rating: 5,
+      notes: 'Kräftig, aber bitter und rauchig. Nur mit viel Milch.', daysAgo: 30 }
+  ];
+
+  /** Fresh copies of the example ratings, dated relative to now. */
+  function exampleRatings(now) {
+    now = now || Date.now();
+    return EXAMPLES.map(function (e) {
+      var r = JSON.parse(JSON.stringify(e));
+      r.at = new Date(now - e.daysAgo * 86400000).toISOString();
+      r.example = true;
+      r.roasterNotes = '';
+      delete r.daysAgo;
+      return r;
+    });
+  }
   var ROASTS = ['hell', 'mittel', 'dunkel'];
 
   function describeStructure(id, value) {
@@ -174,7 +212,8 @@
 
   var api = {
     AROMA_FAMILIES: AROMA_FAMILIES, AROMA_FAMILY: AROMA_FAMILY, STRUCTURE: STRUCTURE, PROCESSES: PROCESSES, ROASTS: ROASTS,
-    describeStructure: describeStructure, describeRating: describeRating, profile: profile, summary: summary, parseScan: parseScan
+    describeStructure: describeStructure, describeRating: describeRating, profile: profile, summary: summary, parseScan: parseScan,
+    exampleRatings: exampleRatings
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.TastingData = api;
