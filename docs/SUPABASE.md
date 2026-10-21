@@ -16,8 +16,10 @@ eigenen Daten sieht. Im Bereich `public` (Wein) ändert das Skript nichts.
 
 ## 2. Den Bereich für die App freigeben
 
-**Project Settings → Data API → Exposed schemas**: `coffee` **hinzufügen**
-(`public` und `graphql_public` drin lassen) → **Save**.
+**Integrations → Data API → Reiter „Settings“ → Exposed schemas**: `coffee`
+**anhaken** (`public` und `graphql_public` angehakt lassen) → **Save**.
+(In älteren Dashboards: Project Settings → Data API.) Fehlt `coffee` in der Liste,
+ist Schritt 1 noch nicht (fehlerfrei) gelaufen.
 
 ## 3. Anmelde-Link auf die Kaffee-App zeigen lassen
 
