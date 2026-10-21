@@ -68,7 +68,8 @@
     $$('.view').forEach(function (v) { v.hidden = v.id !== 'view-' + id; });
     state.view = id;
     U.save(state); // switching views is not a change worth syncing
-    try { if (location.hash.slice(1) !== id && !/^#(bean|recipe)=/.test(location.hash)) history.replaceState(null, '', '#' + id); } catch (e) { /* sandboxed */ }
+    // Leave share links and sign-in tokens in the address bar for the code that reads them.
+    try { if (location.hash.slice(1) !== id && !/^#(bean|recipe)=|access_token=|error=/.test(location.hash)) history.replaceState(null, '', '#' + id); } catch (e) { /* sandboxed */ }
     if (!(opts && opts.keepScroll)) window.scrollTo({ top: 0 });
     (viewListeners[id] || []).forEach(function (fn) { fn(); });
   }

@@ -26,26 +26,21 @@ ist Schritt 1 noch nicht (fehlerfrei) gelaufen.
 **Authentication → URL Configuration**
 
 - **Site URL nicht ändern** – die gehört der Wein-App.
-- Unter **Redirect URLs** → **Add URL**: `https://jg4vhz52tn-droid.github.io/CoffeeApp/`
-  (zum lokalen Testen zusätzlich `http://localhost:8080/`).
+- Unter **Redirect URLs** → **Add URL**: `https://jg4vhz52tn-droid.github.io/CoffeeApp/**`
+  (die `**` erlauben jeden Pfad unterhalb; zum lokalen Testen zusätzlich `http://localhost:8080/**`).
 
 Ohne diesen Eintrag würde der Link aus der Mail auf der Wein-App landen.
 
-## 4. Code in die Anmelde-Mail aufnehmen (empfohlen)
+## 4. Anmelde-Mail (nichts zu tun)
 
-Der 6-stellige Code hilft, wenn der Link im falschen Browser aufgeht – z. B. bei der
-App vom iPhone-Home-Bildschirm. **Authentication → Email Templates → Magic Link**.
+Ohne eigenen Mailserver (SMTP) verschickt Supabase seine Standard-Mail mit einem
+Anmelde-Link; die Vorlagen lassen sich dann nicht bearbeiten. Das reicht: Der Link
+meldet in dem Browser an, in dem er geöffnet wird.
 
-Die Vorlage gilt für **beide Apps**, darum neutral formulieren. Steht dort schon
-ein eigener Text der Wein-App, nur die Zeile mit dem Code ergänzen:
-
-```html
-<h2>Dein Anmelde-Link</h2>
-<p><a href="{{ .ConfirmationURL }}">Jetzt anmelden</a></p>
-<p>Oder gib diesen Code in der App ein: <strong>{{ .Token }}</strong></p>
-```
-
-Dasselbe gern auch im Template **Confirm signup**.
+Später, mit eigenem SMTP (z. B. Resend oder Brevo, kostenlos), lässt sich unter
+**Authentication → Emails → Magic link or OTP** zusätzlich ein Code in die Mail
+aufnehmen (`{{ .Token }}`) – die App hat dafür schon ein Eingabefeld. Die Vorlage
+gilt dann für beide Apps, also neutral formulieren.
 
 ## 5. Schlüssel in die App eintragen
 
@@ -71,7 +66,7 @@ Beide Werte sind für den Browser gedacht und dürfen öffentlich im Repo stehen
 - **Wein-Profil wird mit angelegt:** Die Wein-Datenbank legt bei jeder neuen
   Anmeldung automatisch ein (leeres) Wein-Profil an – auch bei Kaffee-Nutzern.
   Das stört nicht; wer später die Wein-App öffnet, ist dort schon eingerichtet.
-- **Mailversand:** Beide Apps teilen sich das Kontingent für Anmelde-Mails (im
+- **Mailversand:** Beide Apps teilen sich Mail-Vorlagen und das Kontingent für Anmelde-Mails (im
   kostenlosen Tarif nur wenige pro Stunde). Für mehr Nutzer unter
   **Project Settings → Authentication → SMTP Settings** einen eigenen Mailversand
   eintragen (z. B. Resend oder Brevo, beide mit kostenlosem Kontingent).

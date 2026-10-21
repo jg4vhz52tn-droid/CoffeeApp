@@ -204,7 +204,7 @@
     }
 
     if (!user && flow.step === 'sent') {
-      var code = field('acc-code', 'Oder den 6-stelligen Code aus der Mail eingeben', { inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 8, pattern: '[0-9]*', placeholder: '123456' });
+      var code = field('acc-code', 'Steht ein 6-stelliger Code in der Mail? Dann hier eingeben', { inputmode: 'numeric', autocomplete: 'one-time-code', maxlength: 8, pattern: '[0-9]*', placeholder: '123456' });
       var codeForm = el('form', { class: 'sheet-form' }, [
         el('p', { class: 'eyebrow', text: 'Fast geschafft' }),
         el('h2', { id: 'acc-title', text: 'Schau in dein Postfach' }),
@@ -317,12 +317,14 @@
       // Own schema, so the coffee tables never mix with another app in the same project.
       db: { schema: cfg.schema || 'coffee' },
       // Own storage key, so a second app on the same Supabase project keeps its own sign-in.
-      auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'espresso-kompass-auth' }
+      // Implicit flow: the link from the mail signs in whichever browser opens it
+      // (PKCE would only work in the browser that asked for the mail).
+      auth: { flowType: 'implicit', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'espresso-kompass-auth' }
     });
     client.auth.onAuthStateChange(function (event, session) {
       if (event === 'SIGNED_IN' && session && (!user || user.id !== session.user.id)) {
-        // Clean the ?code=… from the link out of the address bar.
-        if (/[?&]code=/.test(location.search)) history.replaceState(null, '', location.pathname + location.hash);
+        // Clean the sign-in tokens from the link out of the address bar.
+        if (/access_token=|[?&]code=/.test(location.hash + location.search)) history.replaceState(null, '', location.pathname + '#' + (state.view || 'espresso'));
         signedIn(session.user);
       }
       if (event === 'SIGNED_OUT') { user = null; profile = null; setStatus('out'); }
@@ -330,7 +332,7 @@
     return client.auth.getSession().then(function (r) {
       var session = r.data && r.data.session;
       if (session && !user) signedIn(session.user);
-      if (!session && !state.welcomeSeen && !/[?&]code=/.test(location.search)) {
+      if (!session && !state.welcomeSeen && !/access_token=|[?&]code=/.test(location.hash + location.search)) {
         // First visit: invite to create an account (once).
         state.welcomeSeen = true;
         U.save(state);
