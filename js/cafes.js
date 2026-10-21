@@ -167,7 +167,7 @@
         lat: lat, lon: lon,
         address: addr,
         hours: t.opening_hours || '',
-        photo: '', rating: null, ratingCount: 0, source: 'osm',
+        photo: photoFromTags(t), wikidata: t.wikidata || '', source: 'osm',
         website: t.website || t['contact:website'] || '',
         roaster: t.craft === 'coffee_roaster',
         score: c.score, specialty: c.specialty, chain: c.chain, reasons: c.reasons,
@@ -201,68 +201,55 @@
     };
   }
 
-  // ---------- Google Places (optional, needs the user's API key) ----------
-  var PLACES_URL = 'https://places.googleapis.com/v1/places:searchText';
-  var PLACES_FIELDS = ['places.id', 'places.displayName', 'places.location', 'places.rating', 'places.userRatingCount',
-    'places.photos', 'places.currentOpeningHours.openNow', 'places.formattedAddress', 'places.googleMapsUri',
-    'places.websiteUri', 'places.primaryType', 'places.types'].join(',');
-
-  function googlePhotoUrl(name, key) {
-    return 'https://places.googleapis.com/v1/' + name + '/media?maxWidthPx=800&key=' + encodeURIComponent(key);
+  // ---------- free photos: Wikimedia Commons via OSM tags or Wikidata ----------
+  /** Commons file name or page URL → direct image URL (scaled), or '' if not a picture. */
+  function commonsFileUrl(value) {
+    if (!value) return '';
+    var name = String(value).trim()
+      .replace(/^https?:\/\/commons\.(m\.)?wikimedia\.org\/wiki\//, '')
+      .replace(/^(File|Datei):/i, '');
+    if (/^Category:/i.test(name) || !/\.(jpe?g|png|webp|tiff?)$/i.test(name)) return '';
+    return 'https://commons.wikimedia.org/wiki/Special:FilePath/' + encodeURIComponent(name.replace(/ /g, '_')) + '?width=800';
   }
 
-  /** Turns Places API (New) results into the same place objects as parsePlaces. */
-  function parseGooglePlaces(list, origin, key, radius) {
-    var seen = {};
-    var out = [];
-    (list || []).forEach(function (g) {
-      if (!g || !g.location || seen[g.id]) return;
-      seen[g.id] = true;
-      var name = g.displayName && g.displayName.text || '';
-      var p = { lat: g.location.latitude, lon: g.location.longitude };
-      var d = origin ? distance(origin, p) : 0;
-      if (radius && d > radius * 1.15) return;
-      var tags = { name: name };
-      if ((g.types || []).indexOf('coffee_shop') >= 0) tags.cuisine = 'coffee_shop';
-      var c = classify(tags);
-      var rating = typeof g.rating === 'number' ? g.rating : null;
-      // A well-rated coffee shop found by a "specialty coffee" search counts as specialty.
-      var specialty = c.specialty || (!c.chain && rating != null && rating >= 4.5 && (g.userRatingCount || 0) >= 30);
-      out.push({
-        id: 'google/' + g.id, name: name, lat: p.lat, lon: p.lon,
-        address: g.formattedAddress || '', hours: '',
-        open: g.currentOpeningHours && typeof g.currentOpeningHours.openNow === 'boolean' ? g.currentOpeningHours.openNow : null,
-        website: g.websiteUri || '', mapsUri: g.googleMapsUri || '', placeId: g.id,
-        photo: g.photos && g.photos[0] && key ? googlePhotoUrl(g.photos[0].name, key) : '',
-        rating: rating, ratingCount: g.userRatingCount || 0, source: 'google',
-        roaster: /roast|röst/i.test(name), score: c.score, specialty: specialty, chain: c.chain, reasons: c.reasons,
-        distance: d, bearing: origin ? bearing(origin, p) : 0
+  /** Best free photo straight from the OSM tags (no extra request). */
+  function photoFromTags(t) {
+    if (!t) return '';
+    if (t.wikimedia_commons) {
+      var c = commonsFileUrl(t.wikimedia_commons);
+      if (c) return c;
+    }
+    if (t.image) {
+      if (/commons\.(m\.)?wikimedia\.org/.test(t.image)) return commonsFileUrl(t.image);
+      if (/^https:\/\/.+\.(jpe?g|png|webp)(\?.*)?$/i.test(t.image)) return t.image;
+    }
+    return '';
+  }
+
+  /** Looks up the main image (P18) of places that only have a Wikidata id. */
+  function wikidataPhotos(ids) {
+    ids = ids.filter(function (id) { return /^Q\d+$/.test(id); }).slice(0, 50);
+    if (!ids.length) return Promise.resolve({});
+    var url = 'https://www.wikidata.org/w/api.php?action=wbgetentities&props=claims&format=json&origin=*&ids=' + ids.join('|');
+    return fetch(url).then(function (r) { return r.ok ? r.json() : {}; }).then(function (j) {
+      var out = {};
+      Object.keys(j.entities || {}).forEach(function (id) {
+        var claim = j.entities[id].claims && j.entities[id].claims.P18;
+        var file = claim && claim[0] && claim[0].mainsnak && claim[0].mainsnak.datavalue && claim[0].mainsnak.datavalue.value;
+        if (file) out[id] = commonsFileUrl(file);
       });
-    });
-    out.sort(function (a, b) {
-      if (a.specialty !== b.specialty) return a.specialty ? -1 : 1;
-      return a.distance - b.distance;
-    });
-    return out;
+      return out;
+    }, function () { return {}; });
   }
 
-  function findCafesGoogle(origin, radius, key) {
-    var query = function (text) {
-      return fetch(PLACES_URL, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': key, 'X-Goog-FieldMask': PLACES_FIELDS },
-        body: JSON.stringify({
-          textQuery: text, languageCode: 'de', maxResultCount: 20,
-          locationBias: { circle: { center: { latitude: origin.lat, longitude: origin.lon }, radius: Math.min(radius, 50000) } }
-        })
-      }).then(function (r) {
-        if (!r.ok) throw new Error(r.status === 403 || r.status === 400 ? 'Der Google-Schlüssel wurde abgelehnt. Prüfe ihn und ob die „Places API (New)“ aktiviert ist.' : 'Google-Suche fehlgeschlagen (' + r.status + ').');
-        return r.json();
-      }).then(function (j) { return j.places || []; });
-    };
-    return Promise.all([query('specialty coffee'), query('Kaffeerösterei Café')]).then(function (res) {
-      return parseGooglePlaces(res[0].concat(res[1]), origin, key, radius);
-    });
+  // ---------- map snippet as cover (OpenStreetMap tiles) ----------
+  /** Tile coordinates for a point: which tile it is in and where inside it (pixels). */
+  function tileFor(lat, lon, zoom) {
+    var n = Math.pow(2, zoom);
+    var x = (lon + 180) / 360 * n;
+    var rad = lat * Math.PI / 180;
+    var y = (1 - Math.log(Math.tan(rad) + 1 / Math.cos(rad)) / Math.PI) / 2 * n;
+    return { z: zoom, x: Math.floor(x), y: Math.floor(y), px: Math.round((x - Math.floor(x)) * 256), py: Math.round((y - Math.floor(y)) * 256) };
   }
 
   /** Directions in Google Maps and Apple Maps for each way of getting there. */
@@ -318,8 +305,8 @@
     distance: distance, bearing: bearing, buildQuery: buildQuery, classify: classify,
     parsePlaces: parsePlaces, formatDistance: formatDistance, mapsLink: mapsLink, osmLink: osmLink,
     searchLinks: searchLinks, geocode: geocode, findCafes: findCafes, locate: locate,
-    parseHours: parseHours, openState: openState, parseGooglePlaces: parseGooglePlaces,
-    findCafesGoogle: findCafesGoogle, routeLinks: routeLinks
+    parseHours: parseHours, openState: openState, routeLinks: routeLinks,
+    commonsFileUrl: commonsFileUrl, photoFromTags: photoFromTags, wikidataPhotos: wikidataPhotos, tileFor: tileFor
   };
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
   else root.Cafes = api;

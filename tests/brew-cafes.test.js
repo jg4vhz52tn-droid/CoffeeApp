@@ -92,21 +92,25 @@ test('opening hours: common OSM formats', () => {
   assert.strictEqual(C.openState(''), null);
 });
 
-test('google places are parsed, filtered by radius and ranked', () => {
-  const origin = { lat: 50.11, lon: 8.68 };
-  const list = [
-    { id: 'a', displayName: { text: 'Hoppenworth & Ploch' }, location: { latitude: 50.115, longitude: 8.68 }, rating: 4.7, userRatingCount: 900,
-      types: ['coffee_shop', 'cafe'], photos: [{ name: 'places/a/photos/p1' }], currentOpeningHours: { openNow: true } },
-    { id: 'b', displayName: { text: 'Starbucks' }, location: { latitude: 50.111, longitude: 8.68 }, rating: 4.1, userRatingCount: 2000, types: ['coffee_shop'] },
-    { id: 'c', displayName: { text: 'Weit weg' }, location: { latitude: 51.0, longitude: 8.68 }, rating: 4.9, userRatingCount: 50 },
-    { id: 'a', displayName: { text: 'Duplikat' }, location: { latitude: 50.115, longitude: 8.68 } }
-  ];
-  const out = C.parseGooglePlaces(list, origin, 'KEY', 2000);
-  assert.deepStrictEqual(out.map(p => p.name), ['Hoppenworth & Ploch', 'Starbucks']);
-  assert.strictEqual(out[0].specialty, true);
-  assert.strictEqual(out[0].open, true);
-  assert.match(out[0].photo, /places\/a\/photos\/p1\/media\?maxWidthPx=800&key=KEY/);
-  assert.strictEqual(out[1].specialty, false);
+test('free photos come from Wikimedia Commons tags', () => {
+  assert.strictEqual(C.commonsFileUrl('File:Café Muster 2019.jpg'), 'https://commons.wikimedia.org/wiki/Special:FilePath/Caf%C3%A9_Muster_2019.jpg?width=800');
+  assert.strictEqual(C.commonsFileUrl('https://commons.wikimedia.org/wiki/File:Bar.png'), 'https://commons.wikimedia.org/wiki/Special:FilePath/Bar.png?width=800');
+  assert.strictEqual(C.commonsFileUrl('Category:Cafés in Berlin'), '');
+  assert.match(C.photoFromTags({ wikimedia_commons: 'File:X.jpg' }), /Special:FilePath\/X\.jpg/);
+  assert.strictEqual(C.photoFromTags({ image: 'https://example.org/front.jpg' }), 'https://example.org/front.jpg');
+  assert.strictEqual(C.photoFromTags({ image: 'http://insecure.org/a.jpg' }), '');
+  assert.strictEqual(C.photoFromTags({}), '');
+  const p = C.parsePlaces({ elements: [{ type: 'node', id: 9, lat: 50, lon: 8, tags: { name: 'A', image: 'https://x.org/a.jpg', wikidata: 'Q1' } }] }, { lat: 50, lon: 8 });
+  assert.strictEqual(p[0].photo, 'https://x.org/a.jpg');
+  assert.strictEqual(p[0].wikidata, 'Q1');
+});
+
+test('tile math puts a point inside the right map tile', () => {
+  const london = C.tileFor(51.5, -0.12, 10); // well-known reference tile
+  assert.deepStrictEqual([london.x, london.y], [511, 340]);
+  const t = C.tileFor(50.1109, 8.6821, 17); // Frankfurt
+  assert.deepStrictEqual([t.x, t.y], [68697, 44389]);
+  assert.ok(t.px >= 0 && t.px < 256 && t.py >= 0 && t.py < 256);
 });
 
 test('route links cover four ways to travel', () => {

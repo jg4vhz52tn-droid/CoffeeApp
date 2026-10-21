@@ -1,5 +1,5 @@
 // Offline cache: the app works at the machine even without Wi-Fi.
-const CACHE = 'espresso-kompass-v4';
+const CACHE = 'espresso-kompass-v5';
 const ASSETS = ['./', 'index.html', 'css/style.css', 'js/ui.js', 'js/engine.js', 'js/brew-data.js', 'js/cafes.js', 'js/app.js', 'js/brew-ui.js', 'js/cafes-ui.js', 'js/tickdial.js', 'js/tasting-data.js', 'js/tasting-ui.js', 'manifest.webmanifest', 'icons/icon.svg'];
 
 self.addEventListener('install', (e) => {

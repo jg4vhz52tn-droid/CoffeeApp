@@ -9,6 +9,8 @@
   var $ = U.$, el = U.el, svg = U.svg, fmt = U.fmt, toast = U.toast;
   var state = App.state;
   state.cafes.liked = state.cafes.liked || [];
+  state.cafes.myRatings = state.cafes.myRatings || {};  // id → { stars, name }
+  delete state.cafes.googleKey;
   if (state.cafes.open === undefined) state.cafes.open = true;
 
   var RADII = [1000, 2000, 5000, 10000];
@@ -51,20 +53,26 @@
   }
 
   function search(origin) {
-    var key = state.cafes.googleKey;
     status('loading', 'Suche Cafés im Umkreis von ' + state.cafes.radius / 1000 + ' km um ' + origin.label + ' …');
     $('#cafe-results').hidden = true;
-    var run = key
-      ? C.findCafesGoogle(origin, state.cafes.radius, key).then(function (p) { return { places: p, source: 'google' }; }, function (e) {
-          return C.findCafes(origin, state.cafes.radius).then(function (p) {
-            return { places: p, source: 'osm', note: e.message + ' Ich zeige dir solange die Daten von OpenStreetMap.' };
-          });
-        })
-      : C.findCafes(origin, state.cafes.radius).then(function (p) { return { places: p, source: 'osm' }; });
-    return run.then(function (r) {
-      results = { origin: origin, places: r.places, source: r.source };
-      status(r.note ? 'note' : null, r.note || '');
+    return C.findCafes(origin, state.cafes.radius).then(function (places) {
+      results = { origin: origin, places: places };
+      status(null);
       show();
+      addWikidataPhotos();
+    });
+  }
+
+  // Places that only link to Wikidata get their photo in one extra request.
+  function addWikidataPhotos() {
+    var need = results.places.filter(function (p) { return !p.photo && p.wikidata; });
+    if (!need.length) return;
+    var current = results;
+    C.wikidataPhotos(need.map(function (p) { return p.wikidata; })).then(function (photos) {
+      if (results !== current) return;
+      var changed = false;
+      need.forEach(function (p) { if (photos[p.wikidata]) { p.photo = photos[p.wikidata]; changed = true; } });
+      if (changed) { renderDeck(); renderList(visiblePlaces()); }
     });
   }
 
@@ -88,21 +96,14 @@
   });
   $('#cafe-specialty').addEventListener('change', function () { state.cafes.specialty = this.checked; App.save(); if (results) show(); });
   $('#cafe-open').addEventListener('change', function () { state.cafes.open = this.checked; App.save(); if (results) show(); });
-  $('#google-key-save').addEventListener('click', function () {
-    state.cafes.googleKey = $('#google-key').value.trim();
-    App.save();
-    toast(state.cafes.googleKey ? 'Schlüssel gespeichert. Die nächste Suche nutzt Google.' : 'Schlüssel entfernt. Gesucht wird mit OpenStreetMap.');
-    if (results) search(results.origin).catch(function (e) { fail(e, results.origin.label); });
-  });
 
   // ---------- filtering ----------
-  function openInfo(p) {
-    if (p.source === 'google') return p.open == null ? null : { open: p.open };
-    return C.openState(p.hours);
-  }
+  function openInfo(p) { return C.openState(p.hours); }
+  function myStars(p) { var r = state.cafes.myRatings[p.id]; return r ? r.stars : 0; }
   function visiblePlaces() {
     var list = results.places.map(function (p) { p.openInfo = openInfo(p); return p; });
     if (state.cafes.open) list = list.filter(function (p) { return !p.openInfo || p.openInfo.open; });
+    list = list.filter(function (p) { var m = myStars(p); return !m || m > 2; }); // you didn't like it: skip
     if (state.cafes.specialty) {
       var spec = list.filter(function (p) { return p.specialty; });
       if (spec.length) list = spec;
@@ -111,7 +112,8 @@
       if (a.specialty !== b.specialty) return a.specialty ? -1 : 1;
       var ao = a.openInfo ? 0 : 1, bo = b.openInfo ? 0 : 1; // known hours first
       if (ao !== bo) return ao - bo;
-      if (a.rating != null && b.rating != null && Math.abs(a.rating - b.rating) >= 0.2) return b.rating - a.rating;
+      var am = myStars(a), bm = myStars(b);
+      if (am !== bm) return bm - am; // your favourites first
       return a.distance - b.distance;
     });
   }
@@ -142,16 +144,57 @@
     if (o.open) return { text: o.until ? 'Geöffnet · bis ' + o.until : 'Geöffnet', cls: 'open' };
     return { text: o.opens ? 'Geschlossen · öffnet ' + o.opens : 'Geschlossen', cls: 'closed' };
   }
+  /** Your own rating, shown as stars; null when you haven't rated the café. */
   function stars(p) {
-    if (p.rating == null) return null;
-    return el('span', { class: 'stars', 'aria-label': fmt(p.rating) + ' von 5 Sternen' }, [
-      el('b', { text: '★ ' + fmt(p.rating) }), p.ratingCount ? el('span', { text: ' (' + p.ratingCount + ')' }) : null
+    var m = myStars(p);
+    if (!m) return null;
+    return el('span', { class: 'stars', 'aria-label': 'Deine Bewertung: ' + m + ' von 5 Sternen' }, [
+      el('b', { text: '★★★★★'.slice(0, m) }), el('span', { class: 'stars-off', text: '★★★★★'.slice(m) }), el('span', { text: ' deine Wertung' })
     ]);
+  }
+  /** Five tappable stars to rate a café you visited. */
+  function rateRow(p, onDone) {
+    var m = myStars(p);
+    var row = el('div', { class: 'rate-row', role: 'radiogroup', 'aria-label': 'Wie war ' + p.name + '?' });
+    for (var i = 1; i <= 5; i++) {
+      (function (n) {
+        row.appendChild(el('button', { type: 'button', role: 'radio', 'aria-checked': String(m === n), 'aria-label': n + ' Sterne',
+          class: 'rate-star' + (n <= m ? ' on' : ''), onclick: function () {
+            state.cafes.myRatings[p.id] = { stars: n, name: p.name };
+            App.save();
+            U.tick(n >= 4 ? 'major' : 'minor');
+            toast(n <= 2 ? 'Notiert – „' + p.name + '“ taucht beim Wischen nicht mehr auf.' : 'Danke! ' + n + ' Sterne für „' + p.name + '“.');
+            if (onDone) onDone();
+          } }, ['★']));
+      })(i);
+    }
+    return row;
+  }
+  /** Free cover when there is no photo: an OpenStreetMap snippet with a pin on the café. */
+  function mapCover(p) {
+    var t = C.tileFor(p.lat, p.lon, 17);
+    var box = el('div', { class: 'sc-map', 'aria-hidden': 'true' }, [
+      el('div', { class: 'sc-art', style: '--h:' + hue(p.name) }, [el('span', { class: 'sc-initial', text: p.name.trim().charAt(0).toUpperCase() })])
+    ]);
+    var tiles = el('div', { class: 'sc-tiles', style: 'left:calc(50% - ' + t.px + 'px);top:calc(50% - ' + t.py + 'px)' });
+    for (var dy = -1; dy <= 1; dy++) {
+      for (var dx = -1; dx <= 1; dx++) {
+        var img = el('img', { src: 'https://tile.openstreetmap.org/17/' + (t.x + dx) + '/' + (t.y + dy) + '.png', alt: '', loading: 'lazy', draggable: 'false',
+          style: 'left:' + dx * 256 + 'px;top:' + dy * 256 + 'px' });
+        img.addEventListener('error', function () { this.remove(); });
+        tiles.appendChild(img);
+      }
+    }
+    box.appendChild(tiles);
+    box.appendChild(el('span', { class: 'sc-pin' }, [U.icon('espresso')]));
+    box.appendChild(el('span', { class: 'sc-credit', text: '© OpenStreetMap' }));
+    return box;
   }
   function badges(p) {
     var b = [];
     if (p.roaster) b.push(el('span', { class: 'badge roast', text: 'Rösterei' }));
     if (p.specialty) b.push(el('span', { class: 'badge spec', text: 'Specialty' }));
+    if (myStars(p) >= 4) b.push(el('span', { class: 'badge fav', text: 'Dein Favorit' }));
     if (p.chain) b.push(el('span', { class: 'badge', text: 'Kette' }));
     return b;
   }
@@ -163,11 +206,13 @@
 
   // ---------- swipe deck ----------
   function cardFor(p, depth) {
-    var cover = p.photo
-      ? el('img', { class: 'sc-photo', src: p.photo, alt: 'Foto von ' + p.name, loading: 'lazy', draggable: 'false' })
-      : el('div', { class: 'sc-art', style: '--h:' + hue(p.name), 'aria-hidden': 'true' }, [
-          el('span', { class: 'sc-initial', text: p.name.trim().charAt(0).toUpperCase() }), U.icon('espresso', 'sc-cup')
-        ]);
+    var cover;
+    if (p.photo) {
+      cover = el('img', { class: 'sc-photo', src: p.photo, alt: 'Foto von ' + p.name, loading: 'lazy', draggable: 'false' });
+      cover.addEventListener('error', function () { cover.replaceWith(mapCover(p)); }); // broken photo: show the map
+    } else {
+      cover = mapCover(p);
+    }
     var o = openText(p);
     var card = el('article', { class: 'swipe-card', style: '--depth:' + depth, 'aria-label': p.name }, [
       el('div', { class: 'sc-cover' }, [
@@ -197,7 +242,7 @@
     $('#deck-like').disabled = $('#deck-nope').disabled = left <= 0;
     if (left <= 0) {
       box.appendChild(el('div', { class: 'deck-end' }, [
-        el('p', { class: 'fw-summary', text: 'Das waren alle ' + deck.length + ' Cafés.' }),
+        el('p', { class: 'fw-summary', text: deck.length === 1 ? 'Das war das einzige Café.' : 'Das waren alle ' + deck.length + ' Cafés.' }),
         el('div', { class: 'row-actions' }, [
           el('button', { class: 'btn small accent', type: 'button', onclick: function () { deckIndex = 0; renderDeck(); } }, ['Nochmal von vorn']),
           state.cafes.radius < 10000 ? el('button', { class: 'btn small ghost', type: 'button', onclick: function () {
@@ -323,7 +368,7 @@
   function remember(p) {
     state.cafes.liked = state.cafes.liked.filter(function (x) { return x.id !== p.id; });
     state.cafes.liked.unshift({ id: p.id, name: p.name, lat: p.lat, lon: p.lon, placeId: p.placeId || '', address: p.address,
-      distance: p.distance, photo: p.photo || '', rating: p.rating, specialty: p.specialty });
+      distance: p.distance, photo: p.photo || '', specialty: p.specialty });
     state.cafes.liked = state.cafes.liked.slice(0, 30);
     App.save();
     renderLiked();
@@ -337,7 +382,8 @@
         p.photo ? el('img', { src: p.photo, alt: '', loading: 'lazy' }) : el('div', { class: 'sc-art small', style: '--h:' + hue(p.name) }, [el('span', { class: 'sc-initial', text: p.name.charAt(0).toUpperCase() })]),
         el('div', { class: 'liked-body' }, [
           el('strong', { text: p.name }),
-          el('span', { class: 'muted', text: p.rating != null ? '★ ' + fmt(p.rating) : (p.specialty ? 'Specialty' : '') }),
+          myStars(p) ? null : el('span', { class: 'muted', text: 'Warst du da? Bewerte es:' }),
+          rateRow(p, function () { renderLiked(); if (results) renderList(visiblePlaces()); }),
           el('div', { class: 'liked-actions' }, [
             el('button', { class: 'btn small accent', type: 'button', onclick: function () { openRoute(p); } }, ['Route']),
             el('button', { class: 'icon-btn light small', type: 'button', 'aria-label': p.name + ' entfernen', onclick: function () {
@@ -358,7 +404,7 @@
     box.appendChild(el('p', { class: 'muted' }, ['Mehr Tipps' + (where ? ' für ' + where : '') + ': ',
       el('a', { href: links.europeanCoffeeTrip, target: '_blank', rel: 'noopener', text: 'European Coffee Trip' }), ' · ',
       el('a', { href: links.google, target: '_blank', rel: 'noopener', text: 'Google Maps' }),
-      results.source === 'osm' ? ' · Daten: © OpenStreetMap-Mitwirkende' : ' · Fotos & Bewertungen: Google']));
+      ' · Daten: © OpenStreetMap-Mitwirkende, Fotos: Wikimedia Commons']));
   }
 
   // ---------- map (Leaflet, loaded on first use) ----------
@@ -384,7 +430,7 @@
 
   function renderMap(places) {
     var spec = places.filter(function (p) { return p.specialty; }).length;
-    $('#map-caption').textContent = places.length + ' Cafés rund um ' + results.origin.label.split(',')[0] + (spec ? ' · ' + spec + ' Specialty' : '');
+    $('#map-caption').textContent = places.length + (places.length === 1 ? ' Café' : ' Cafés') + ' rund um ' + results.origin.label.split(',')[0] + (spec ? ' · ' + spec + ' Specialty' : '');
     loadLeaflet().then(function (L) {
       $('#cafe-map').hidden = false;
       $('#radar').hidden = true;
@@ -470,7 +516,7 @@
         el('span', { class: 'rank', text: String(i + 1) }),
         el('div', {}, [
           el('h3', { text: p.name }),
-          el('div', { class: 'meta' }, [stars(p), (p.rating != null ? ' · ' : '') + [C.formatDistance(p.distance), p.address].filter(Boolean).join(' · ')]),
+          el('div', { class: 'meta' }, [stars(p), (myStars(p) ? ' · ' : '') + [C.formatDistance(p.distance), p.address].filter(Boolean).join(' · ')]),
           el('div', { class: 'badges' }, badges(p).concat([el('span', { class: 'badge open-' + o.cls, text: o.text })])),
           el('div', { class: 'links' }, [
             el('button', { class: 'btn small accent', type: 'button', onclick: function () { remember(p); openRoute(p); } }, ['Route']),
@@ -487,7 +533,6 @@
     $('#cafe-specialty').checked = state.cafes.specialty !== false;
     $('#cafe-open').checked = state.cafes.open !== false;
     if (!$('#cafe-query').value) $('#cafe-query').value = state.cafes.query || '';
-    $('#google-key').value = state.cafes.googleKey || '';
     if (map) setTimeout(function () { map.invalidateSize(); }, 50);
   });
 })();

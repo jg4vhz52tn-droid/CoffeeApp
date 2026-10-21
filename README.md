@@ -19,7 +19,8 @@ Basiert auf dem *Brewed Coffee Compass* von Barista Hustle, adaptiert für Espre
   und das eigene Geschmacksrad: welche Aromafamilien, Herkünfte und Aufbereitungen dir am besten schmecken.
 - **Cafés** – Stadt oder Standort, Umkreis 1–10 km, „Nur geöffnet“ und „Nur Specialty“. Ergebnisse als Karte (Leaflet +
   OpenStreetMap), als Wisch-Karten (rechts = hin, mit Routenwahl zu Fuß/Rad/ÖPNV/Auto; links = weiter) und als Liste.
-  Daten von OpenStreetMap; mit eigenem Google-Schlüssel (Places API New) zusätzlich Fotos, Sterne und „jetzt geöffnet“.
+  Komplett kostenlos: Daten von OpenStreetMap, Fotos von Wikimedia Commons (über OSM-Tags oder Wikidata), sonst ein
+  Kartenausschnitt mit Pin. Statt fremder Sterne bewertest du besuchte Cafés selbst; schlecht bewertete tauchen nicht mehr auf.
 - **Verlauf** – der Weg deiner Shots über den Kompass, pro Bohne (unter „Bohnen“).
 - **Wissen** – Anleitung „So nutzt du die App“, Espresso Schritt für Schritt einstellen und das Prinzip dahinter.
 

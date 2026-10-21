@@ -179,7 +179,7 @@
       <div class="view-head">
         <p class="eyebrow">Cafés finden</p>
         <h1>Guter Kaffee in deiner Nähe.</h1>
-        <p class="lede">Stadt eingeben oder Standort nutzen, Umkreis wählen, suchen. Dann wischst du dich durch die besten Cafés – rechts heißt „da will ich hin“.</p>
+        <p class="lede">Stadt eingeben oder Standort nutzen, Umkreis wählen, suchen. Dann wischst du dich durch die besten Cafés – rechts heißt „da will ich hin“. Alles kostenlos: Daten von OpenStreetMap, Fotos von Wikimedia Commons.</p>
       </div>
       <form class="cafe-search panel" id="cafe-form">
         <div class="search-row">
@@ -197,17 +197,6 @@
           </div>
         </div>
         <button class="btn accent search-go" type="submit" id="cafe-search-btn">Cafés suchen</button>
-        <details class="settings google-settings">
-          <summary>Fotos &amp; Bewertungen von Google</summary>
-          <p class="muted">Mit einem eigenen Google-Schlüssel zeigen die Karten echte Fotos, Sterne und „jetzt geöffnet“. Ohne Schlüssel kommen die Daten kostenlos von OpenStreetMap. Der Schlüssel bleibt nur in diesem Browser.</p>
-          <div class="search-row">
-            <label class="search-field" for="google-key"><span class="sr-only">Google-API-Schlüssel</span>
-              <input id="google-key" type="password" autocomplete="off" placeholder="Google-API-Schlüssel (Places API New)">
-            </label>
-            <button class="btn small ghost" type="button" id="google-key-save">Speichern</button>
-          </div>
-          <p class="muted small-print">So bekommst du einen: in der <a href="https://console.cloud.google.com/apis/library/places.googleapis.com" target="_blank" rel="noopener">Google Cloud Console</a> „Places API (New)“ aktivieren, unter „Anmeldedaten“ einen API-Schlüssel erstellen und ihn auf die Adresse dieser App beschränken.</p>
-        </details>
       </form>
       <div id="cafe-status" class="cafe-status" aria-live="polite"></div>
       <div id="cafe-results" hidden>
