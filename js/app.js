@@ -62,7 +62,7 @@
     $$('.view').forEach(function (v) { v.hidden = v.id !== 'view-' + id; });
     state.view = id;
     save();
-    try { if (location.hash.slice(1) !== id && !/^#bean=/.test(location.hash)) history.replaceState(null, '', '#' + id); } catch (e) { /* sandboxed */ }
+    try { if (location.hash.slice(1) !== id && !/^#(bean|recipe)=/.test(location.hash)) history.replaceState(null, '', '#' + id); } catch (e) { /* sandboxed */ }
     if (!(opts && opts.keepScroll)) window.scrollTo({ top: 0 });
     (viewListeners[id] || []).forEach(function (fn) { fn(); });
   }
@@ -369,10 +369,18 @@
     state.profiles.forEach(function (p) {
       sel.appendChild(el('option', { value: p.id }, [p.name + (p.roaster && p.roaster !== 'Vorlage' ? ' · ' + p.roaster : '')]));
     });
+    sel.appendChild(el('option', { value: '__new' }, ['＋ Neue Bohne anlegen …']));
     sel.value = profileById(state.current.beanId) ? state.current.beanId : '';
     renderTarget();
   }
-  $('#bean-select').addEventListener('change', function () { selectBean(this.value); });
+  $('#bean-select').addEventListener('change', function () {
+    if (this.value === '__new') {
+      this.value = profileById(state.current.beanId) ? state.current.beanId : '';
+      openQuickBean();
+      return;
+    }
+    selectBean(this.value);
+  });
   function selectBean(id) {
     state.current.beanId = id;
     var p = profileById(id);
@@ -397,6 +405,116 @@
       p.temp ? ['', fmt(p.temp) + ' °C'] : null, ['Röstung', p.roast], p.grind != null ? ['Dein Mahlgrad', fmt(p.grind, 2)] : null]
       .forEach(function (kv) { if (kv) box.appendChild(el('span', { class: 'tag' }, [kv[0] ? kv[0] + ' ' : '', el('b', { text: kv[1] })])); });
   }
+  // ---------- starting recipe tip for beans you know little about ----------
+  /**
+   * Builds the tip box: roast, basket and milk choices with a live suggestion.
+   * opts.applyLabel: show a button that hands the suggestion to onApply;
+   * without it, onApply is called on every change.
+   */
+  function tipBox(onApply, opts) {
+    opts = opts || {};
+    var sel = { roast: opts.roast || 'mittel', basket: 'double', milk: false };
+    var box = el('div', { class: 'tip-box' });
+    function choice(label, key, options, hint) {
+      var row = el('div', { class: 'choice-row', role: 'radiogroup', 'aria-label': label });
+      options.forEach(function (o) {
+        row.appendChild(el('button', { type: 'button', class: 'choice', role: 'radio', 'aria-checked': String(sel[key] === o[0]),
+          onclick: function () { sel[key] = o[0]; U.tick('minor'); render(); } }, [o[1]]));
+      });
+      return el('div', { class: 'field' }, [el('span', { class: 'label', text: label }), row, hint ? el('span', { class: 'tip-hint', text: hint }) : null]);
+    }
+    function render() {
+      var s = E.suggestRecipe(sel);
+      box.innerHTML = '';
+      box.appendChild(el('p', { class: 'tip-title' }, [U.icon('learn'), 'So startest du mit dieser Bohne']));
+      box.appendChild(choice('Röstgrad', 'roast', [['hell', 'hell'], ['mittel', 'mittel'], ['dunkel', 'dunkel']],
+        'Steht nicht auf der Tüte? Hellbraun = hell, schokobraun = mittel, fast schwarz und ölig = dunkel.'));
+      box.appendChild(choice('Sieb im Siebträger', 'basket', [['single', 'Single'], ['double', 'Doppelt'], ['triple', 'Triple']],
+        'Im Zweifel: Doppelt. Das ist bei fast allen Maschinen Standard.'));
+      box.appendChild(choice('Wie trinkst du ihn?', 'milk', [[false, 'pur'], [true, 'mit Milch']]));
+      box.appendChild(el('div', { class: 'tip-result' }, [
+        tipStat('Dosis', fmt(s.dose) + ' g'), tipStat('Bezug', fmt(s.yield) + ' g', '1:' + fmt(s.yield / s.dose, 1)),
+        tipStat('Zeit', s.timeMin + '–' + s.timeMax + ' s'), tipStat('Temperatur', s.temp + ' °C')
+      ]));
+      var why = el('ul', { class: 'tip-why' });
+      s.why.forEach(function (t) { why.appendChild(el('li', { text: t })); });
+      box.appendChild(why);
+      if (opts.applyLabel) {
+        box.appendChild(el('div', { class: 'row-actions' }, [
+          el('button', { class: 'btn small accent', type: 'button', onclick: function () { onApply(s, sel); } }, [opts.applyLabel])
+        ]));
+      } else {
+        onApply(s, sel);
+      }
+    }
+    render();
+    return box;
+  }
+  function tipStat(k, v, sub) {
+    return el('div', { class: 'tip-stat' }, [el('span', { class: 'label', text: k }), el('strong', { text: v }), sub ? el('span', { class: 'muted', text: sub }) : null]);
+  }
+
+  // Quick "new bean" right in the espresso view.
+  var quickBtn = $('#bean-quick-btn');
+  function openQuickBean() {
+    var panel = $('#quick-bean');
+    var suggestion = null, choice = null;
+    var name = el('input', { id: 'qb-name', maxlength: 80, placeholder: 'z. B. Ethiopia Guji' });
+    var roaster = el('input', { id: 'qb-roaster', maxlength: 80, placeholder: 'optional' });
+    panel.innerHTML = '';
+    panel.appendChild(el('div', { class: 'quick-head' }, [
+      el('h3', { text: 'Neue Bohne' }),
+      el('button', { class: 'icon-btn light small', type: 'button', 'aria-label': 'Schließen', onclick: closeQuickBean }, [U.icon('close')])
+    ]));
+    panel.appendChild(el('div', { class: 'form-grid' }, [
+      el('label', { class: 'field span2', for: 'qb-name' }, [el('span', { class: 'label', text: 'Name' }), name]),
+      el('label', { class: 'field span2', for: 'qb-roaster' }, [el('span', { class: 'label', text: 'Rösterei' }), roaster])
+    ]));
+    panel.appendChild(tipBox(function (s, sel) { suggestion = s; choice = sel; }));
+    panel.appendChild(el('div', { class: 'row-actions' }, [
+      el('button', { class: 'btn accent', type: 'button', onclick: function () {
+        var n = name.value.trim();
+        if (!n) { name.focus(); toast('Gib der Bohne einen Namen.'); return; }
+        var p = E.parseProfile({ name: n, roaster: roaster.value.trim(), roast: choice.roast,
+          notes: choice.milk ? 'Für Milchgetränke.' : '', recipe: suggestion });
+        p.id = uniqueId(p.id);
+        state.profiles.push(p);
+        save();
+        closeQuickBean();
+        selectBean(p.id);
+        U.tick('major');
+        toast('„' + p.name + '“ angelegt. Zieh den ersten Shot mit ' + fmt(p.dose) + ' g → ' + fmt(p.yield) + ' g.');
+      } }, ['Anlegen & loslegen']),
+      el('button', { class: 'btn ghost', type: 'button', onclick: closeQuickBean }, ['Abbrechen'])
+    ]));
+    panel.hidden = false;
+    quickBtn.setAttribute('aria-expanded', 'true');
+    name.focus();
+  }
+  function closeQuickBean() {
+    $('#quick-bean').hidden = true;
+    quickBtn.setAttribute('aria-expanded', 'false');
+  }
+  quickBtn.addEventListener('click', function () { if ($('#quick-bean').hidden) openQuickBean(); else closeQuickBean(); });
+
+  // Tip inside the full bean form (Bohnen tab).
+  $('#bf-tip-btn').addEventListener('click', function () {
+    var slot = $('#bf-tip-slot');
+    if (!slot.hidden) { slot.hidden = true; this.setAttribute('aria-expanded', 'false'); return; }
+    slot.innerHTML = '';
+    slot.appendChild(tipBox(function (s, sel) {
+      $('#bf-dose').value = s.dose; $('#bf-yield').value = s.yield;
+      $('#bf-tmin').value = s.timeMin; $('#bf-tmax').value = s.timeMax;
+      $('#bf-temp').value = s.temp; $('#bf-roast').value = sel.roast;
+      slot.hidden = true;
+      $('#bf-tip-btn').setAttribute('aria-expanded', 'false');
+      U.tick('medium');
+      toast('Werte übernommen. Du kannst sie jederzeit anpassen.');
+    }, { applyLabel: 'Werte übernehmen', roast: $('#bf-roast').value }));
+    slot.hidden = false;
+    this.setAttribute('aria-expanded', 'true');
+  });
+
   function lastShotFor(beanId) {
     for (var i = state.shots.length - 1; i >= 0; i--) if ((state.shots[i].beanId || '') === (beanId || '')) return state.shots[i];
     return null;
@@ -605,6 +723,8 @@
     var p = id ? profileById(id) : { name: '', roaster: '', dose: 18, yield: 36, timeMin: 25, timeMax: 30, temp: 93, roast: 'mittel', notes: '' };
     Object.keys(BEAN_FIELDS).forEach(function (k) { $('#' + BEAN_FIELDS[k]).value = p[k] == null ? '' : p[k]; });
     $('#bean-form-title').textContent = id ? 'Profil bearbeiten' : 'Neues Profil';
+    $('#bf-tip-slot').hidden = true;
+    $('#bf-tip-btn').setAttribute('aria-expanded', 'false');
     $('#bean-form-card').hidden = false;
     $('#bean-import-card').hidden = true;
     $('#bean-form-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -717,6 +837,10 @@
     if (VIEWS.some(function (x) { return x.id === v; })) { showView(v); return true; }
     return false;
   }
+
+  // Guide cards in "Wissen": icons and jump buttons.
+  $$('.guide-ico').forEach(function (n) { n.appendChild(U.icon(n.getAttribute('data-icon'))); });
+  $$('[data-go]').forEach(function (b) { b.addEventListener('click', function () { showView(b.getAttribute('data-go')); }); });
 
   onView('beans', renderBeans);
   onView('espresso', function () { renderBeanSelect(); update(); });

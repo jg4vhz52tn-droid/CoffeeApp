@@ -56,3 +56,69 @@ test('overpass query contains radius and coordinates', () => {
   assert.match(q, /around:2000,48\.13700,11\.57500/);
   assert.match(q, /coffee_roaster/);
 });
+
+test('own recipe helpers: time parsing and editable amounts', () => {
+  assert.strictEqual(B.parseTime('1:30'), 90);
+  assert.strictEqual(B.parseTime('45'), 45);
+  assert.strictEqual(B.parseTime('2.05'), 125);
+  assert.ok(Number.isNaN(B.parseTime('bald')));
+  const txt = B.toEditable('[[30]] Kaffee und [[12.5]] Wasser');
+  assert.strictEqual(txt, '30 g Kaffee und 12,5 g Wasser');
+  assert.strictEqual(B.fromEditable(txt), '[[30]] Kaffee und [[12.5]] Wasser');
+  assert.strictEqual(B.fromEditable('bei 94 °C, 3 Tassen'), 'bei 94 °C, 3 Tassen');
+});
+
+test('normalizeCustom validates and sorts steps; result scales', () => {
+  const r = B.normalizeCustom({ name: 'Mein V60', method: 'v60', dose: 20, water: 320, grind: 'fein',
+    steps: [{ at: '1:00', title: 'Aufgießen', detail: 'Auf [[320]] gesamt' }, { at: '0:00', title: 'Bloom', detail: '[[60]] Wasser' }] });
+  assert.strictEqual(r.custom, true);
+  assert.deepStrictEqual(r.steps.map(s => s.at), [0, 60]);
+  assert.match(B.scaleRecipe(r, 640).steps[0].detail, /120 g/);
+  assert.throws(() => B.normalizeCustom({ name: '', method: 'v60', dose: 1, water: 1, steps: [{ at: 0, title: 'x' }] }), /Namen/);
+  assert.throws(() => B.normalizeCustom({ name: 'x', method: 'v60', dose: 15, water: 250, steps: [{ at: 'irgendwann', title: 'x' }] }), /Zeit/);
+  assert.throws(() => B.normalizeCustom({ name: 'x', method: 'teebeutel', dose: 15, water: 250, steps: [{ at: 0, title: 'x' }] }), /Brühmethode/);
+});
+
+test('opening hours: common OSM formats', () => {
+  const at = (s) => new Date(s);
+  const h = 'Mo-Fr 08:00-18:00; Sa 09:00-14:00; Su off';
+  assert.deepStrictEqual(C.openState(h, at('2026-10-21T10:00:00')), { open: true, until: '18:00' }); // Wednesday
+  assert.deepStrictEqual(C.openState(h, at('2026-10-21T07:30:00')), { open: false, opens: '08:00' });
+  assert.deepStrictEqual(C.openState(h, at('2026-10-25T10:00:00')), { open: false, opens: null }); // Sunday
+  assert.deepStrictEqual(C.openState('Fr-Sa 18:00-02:00', at('2026-10-24T01:00:00')), { open: true, until: '02:00' });
+  assert.deepStrictEqual(C.openState('Mo,We 10:00-12:00,14:00-16:00', at('2026-10-21T15:00:00')), { open: true, until: '16:00' });
+  assert.deepStrictEqual(C.openState('24/7'), { open: true, until: null });
+  assert.strictEqual(C.openState('nach Vereinbarung'), null);
+  assert.strictEqual(C.openState(''), null);
+});
+
+test('google places are parsed, filtered by radius and ranked', () => {
+  const origin = { lat: 50.11, lon: 8.68 };
+  const list = [
+    { id: 'a', displayName: { text: 'Hoppenworth & Ploch' }, location: { latitude: 50.115, longitude: 8.68 }, rating: 4.7, userRatingCount: 900,
+      types: ['coffee_shop', 'cafe'], photos: [{ name: 'places/a/photos/p1' }], currentOpeningHours: { openNow: true } },
+    { id: 'b', displayName: { text: 'Starbucks' }, location: { latitude: 50.111, longitude: 8.68 }, rating: 4.1, userRatingCount: 2000, types: ['coffee_shop'] },
+    { id: 'c', displayName: { text: 'Weit weg' }, location: { latitude: 51.0, longitude: 8.68 }, rating: 4.9, userRatingCount: 50 },
+    { id: 'a', displayName: { text: 'Duplikat' }, location: { latitude: 50.115, longitude: 8.68 } }
+  ];
+  const out = C.parseGooglePlaces(list, origin, 'KEY', 2000);
+  assert.deepStrictEqual(out.map(p => p.name), ['Hoppenworth & Ploch', 'Starbucks']);
+  assert.strictEqual(out[0].specialty, true);
+  assert.strictEqual(out[0].open, true);
+  assert.match(out[0].photo, /places\/a\/photos\/p1\/media\?maxWidthPx=800&key=KEY/);
+  assert.strictEqual(out[1].specialty, false);
+});
+
+test('route links cover four ways to travel', () => {
+  const links = C.routeLinks({ lat: 50.1, lon: 8.6, distance: 800, placeId: 'xyz' });
+  assert.deepStrictEqual(links.map(l => l.mode), ['walking', 'bicycling', 'transit', 'driving']);
+  assert.match(links[0].google, /travelmode=walking/);
+  assert.match(links[0].google, /destination_place_id=xyz/);
+  assert.strictEqual(links[0].eta, '≈ 10 min');
+});
+
+test('wide radius only asks for likely specialty cafés', () => {
+  assert.match(C.buildQuery(50.1, 8.6, 1000), /nwr\["amenity"="cafe"\]\(around/);
+  assert.doesNotMatch(C.buildQuery(50.1, 8.6, 10000), /nwr\["amenity"="cafe"\]\(around/);
+  assert.match(C.buildQuery(50.1, 8.6, 10000), /cuisine/);
+});

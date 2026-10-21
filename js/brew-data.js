@@ -15,7 +15,8 @@
     { id: 'v60', name: 'V60', tagline: 'Klar und präzise – für helle Röstungen.', icon: 'v60' },
     { id: 'chemex', name: 'Chemex', tagline: 'Sehr klar, ideal für mehrere Tassen.', icon: 'chemex' },
     { id: 'moka', name: 'Mokkakanne', tagline: 'Kräftig und intensiv vom Herd.', icon: 'moka' },
-    { id: 'coldbrew', name: 'Cold Brew', tagline: 'Über Nacht: weich, schokoladig, wenig Säure.', icon: 'coldbrew' }
+    { id: 'clever', name: 'Clever Dripper', tagline: 'Ziehen lassen und filtern – sehr verzeihend.', icon: 'clever' },
+    { id: 'coldbrew', name: 'Cold Brew & Eis', tagline: 'Kalt aufgegossen oder direkt auf Eis gebrüht.', icon: 'coldbrew' }
   ];
 
   var AEROPRECIPE = 'https://aeroprecipe.com/recipes/';
@@ -107,6 +108,21 @@
       ]
     },
 
+    {
+      id: 'ap-inverted', method: 'aeropress', name: 'Invertiert für jeden Tag', author: 'Standardrezept',
+      source: null,
+      dose: 15, water: 200, temp: 90, grind: 'mittel', position: 'Invertiert', level: 'Einsteiger',
+      notes: 'Die verbreitete invertierte Methode: Nichts tropft vorzeitig durch, die Ziehzeit bestimmst du selbst.',
+      steps: [
+        { at: 0, title: 'Aufbauen', detail: 'AeroPress umgedreht auf den Stempel stellen. [[15]] Kaffee einfüllen, Filter im Deckel spülen.' },
+        { at: 0, title: 'Bloom', detail: '[[50]] Wasser mit 90 °C aufgießen, sodass alles nass ist.' },
+        { at: 30, title: 'Auffüllen', detail: 'Auf [[200]] gesamt auffüllen und 3–4 Mal rühren.' },
+        { at: 90, title: 'Umdrehen', detail: 'Deckel aufschrauben, kurz Luft herausdrücken und auf die Tasse drehen.' },
+        { at: 105, title: 'Drücken', detail: 'Gleichmäßig in ca. 30 Sekunden drücken, aufhören, wenn es zischt.' },
+        { at: 135, title: 'Fertig', detail: 'Genießen.' }
+      ]
+    },
+
     // ---------- French Press ----------
     {
       id: 'fp-hoffmann', method: 'frenchpress', name: 'Ohne Satz im Becher', author: 'James Hoffmann',
@@ -131,6 +147,19 @@
         { at: 15, title: 'Umrühren', detail: 'Einmal kurz umrühren, Deckel aufsetzen (Sieb oben lassen).' },
         { at: 240, title: 'Drücken', detail: 'Sieb langsam herunterdrücken.' },
         { at: 260, title: 'Sofort ausgießen', detail: 'Komplett in Tassen oder eine Karaffe umfüllen.' }
+      ]
+    },
+
+    {
+      id: 'fp-single', method: 'frenchpress', name: 'Eine große Tasse', author: 'Standardrezept',
+      source: null,
+      dose: 16, water: 260, temp: 94, grind: 'mittelgrob', position: '', level: 'Einsteiger',
+      notes: 'Für die kleine 350-ml-Kanne. Wer es klarer mag, wartet nach dem Drücken eine Minute, bevor er ausgießt.',
+      steps: [
+        { at: 0, title: 'Aufgießen', detail: '[[16]] Kaffee in die Kanne, [[260]] Wasser mit 94 °C aufgießen.' },
+        { at: 15, title: 'Umrühren', detail: 'Einmal umrühren, Deckel mit hochgezogenem Sieb aufsetzen.' },
+        { at: 240, title: 'Drücken', detail: 'Sieb langsam bis nach unten drücken.' },
+        { at: 255, title: 'Ausgießen', detail: 'Direkt in die Tasse gießen, damit nichts nachzieht.' }
       ]
     },
 
@@ -161,6 +190,35 @@
         { at: 135, title: 'Aufguss 4', detail: 'Auf [[240]] gesamt aufgießen.' },
         { at: 180, title: 'Aufguss 5', detail: 'Auf [[300]] gesamt aufgießen.' },
         { at: 210, title: 'Fertig', detail: 'Filter herausnehmen, sobald das Wasser durchgelaufen ist (ca. 3:30).' }
+      ]
+    },
+
+    {
+      id: 'v60-hoffmann-1cup', method: 'v60', name: 'Better 1 Cup V60', author: 'James Hoffmann',
+      source: { label: 'AeroPrecipe', url: 'https://aeroprecipe.com/recipes/james-hoffmann-better-1-cup-v60-technique' },
+      dose: 15, water: 250, temp: 99, grind: 'mittelfein', position: '', level: 'Fortgeschritten',
+      notes: 'Eine Tasse in fünf kleinen Aufgüssen. Die Zeiten der einzelnen Aufgüsse sind Richtwerte – Ziel ist, dass alles nach etwa 3:00 durchgelaufen ist.',
+      steps: [
+        { at: 0, title: 'Bloom', detail: '[[50]] Wasser aufgießen und den Filter schwenken, damit alles nass wird.' },
+        { at: 45, title: 'Aufguss 2', detail: 'Auf [[100]] gesamt aufgießen.' },
+        { at: 60, title: 'Aufguss 3', detail: 'Auf [[150]] gesamt aufgießen.' },
+        { at: 70, title: 'Aufguss 4', detail: 'Auf [[200]] gesamt aufgießen.' },
+        { at: 80, title: 'Aufguss 5', detail: 'Auf [[250]] gesamt aufgießen.' },
+        { at: 90, title: 'Schwenken', detail: 'Den V60 sanft schwenken, damit das Kaffeebett flach wird.' },
+        { at: 180, title: 'Fertig', detail: 'Durchgelaufen? Dann genießen.' }
+      ]
+    },
+    {
+      id: 'v60-basic', method: 'v60', name: 'V60 für Einsteiger', author: 'Standardrezept',
+      source: null,
+      dose: 15, water: 250, temp: 94, grind: 'mittelfein', position: '', level: 'Einsteiger',
+      notes: 'Drei einfache Schritte, wenig Fehlerquellen. Läuft es länger als 3:30, nächstes Mal etwas gröber mahlen.',
+      steps: [
+        { at: 0, title: 'Bloom', detail: 'Filter spülen, [[15]] Kaffee einfüllen, [[40]] Wasser aufgießen.' },
+        { at: 40, title: 'Erster Aufguss', detail: 'In kleinen Kreisen auf [[150]] gesamt aufgießen.' },
+        { at: 75, title: 'Zweiter Aufguss', detail: 'Auf [[250]] gesamt aufgießen.' },
+        { at: 105, title: 'Durchlaufen lassen', detail: 'Einmal schwenken und durchlaufen lassen.' },
+        { at: 180, title: 'Fertig', detail: 'Ziel: durchgelaufen bei 2:45–3:15.' }
       ]
     },
 
@@ -195,6 +253,22 @@
       ]
     },
 
+    // ---------- Clever Dripper ----------
+    {
+      id: 'clever-hoffmann', method: 'clever', name: 'Wasser zuerst', author: 'James Hoffmann',
+      source: { label: 'Honest Coffee Guide', url: 'https://honestcoffeeguide.com/brew-recipes/james-hoffmann-clever-dripper/' },
+      dose: 18, water: 300, temp: 90, grind: 'mittelfein', position: '', level: 'Einsteiger',
+      notes: 'Erst Wasser, dann Kaffee: so läuft der Clever schneller ab und verstopft nicht. Wer es kräftiger mag, lässt 30–60 Sekunden länger ziehen.',
+      steps: [
+        { at: 0, title: 'Wasser einfüllen', detail: 'Filter spülen, dann [[300]] Wasser in den geschlossenen Clever gießen.' },
+        { at: 10, title: 'Kaffee dazu', detail: '[[18]] Kaffee einstreuen und sanft unterrühren, bis alles nass ist.' },
+        { at: 30, title: 'Ziehen lassen', detail: 'Deckel drauf und ziehen lassen.' },
+        { at: 120, title: 'Umrühren', detail: 'Einmal sanft umrühren, damit die Kruste absinkt.' },
+        { at: 150, title: 'Ablassen', detail: 'Auf die Tasse oder Kanne stellen – das Ventil öffnet sich und der Kaffee läuft ab.' },
+        { at: 240, title: 'Fertig', detail: 'Durchgelaufen? Dann genießen.' }
+      ]
+    },
+
     // ---------- Cold Brew ----------
     {
       id: 'coldbrew-classic', method: 'coldbrew', name: 'Konzentrat über Nacht', author: 'Standardrezept',
@@ -208,8 +282,69 @@
         { at: 64800, title: 'Filtern', detail: 'Durch einen Papierfilter oder ein feines Tuch abseihen.' },
         { at: 65400, title: 'Servieren', detail: 'Mit Wasser oder Milch verdünnen, auf Eis genießen.' }
       ]
+    },
+    {
+      id: 'iced-pourover', method: 'coldbrew', name: 'Japanischer Eiskaffee', author: 'Standardrezept',
+      source: null,
+      dose: 20, water: 160, temp: 96, grind: 'mittelfein', position: 'V60 auf Eis', level: 'Einsteiger',
+      notes: 'Heiß direkt auf Eis gebrüht: fruchtiger und frischer als Cold Brew, in 3 Minuten fertig. Die Wassermenge ist nur der heiße Teil, das Eis kommt dazu.',
+      steps: [
+        { at: 0, title: 'Eis vorbereiten', detail: '[[140]] Eis in die Kanne, Filter in den V60 einlegen und spülen.' },
+        { at: 15, title: 'Bloom', detail: '[[20]] Kaffee einfüllen und mit [[40]] heißem Wasser benetzen.' },
+        { at: 60, title: 'Aufgießen', detail: 'In Kreisen auf [[100]] gesamt aufgießen.' },
+        { at: 95, title: 'Letzter Aufguss', detail: 'Auf [[160]] gesamt aufgießen.' },
+        { at: 150, title: 'Schwenken & servieren', detail: 'Kanne schwenken, bis das Eis fast geschmolzen ist, und auf frisches Eis gießen.' }
+      ]
     }
   ];
+
+  // ---------- own recipes ----------
+  /** "1:30", "90", "1.30" → seconds. Returns NaN when unreadable. */
+  function parseTime(str) {
+    str = String(str == null ? '' : str).trim().replace('.', ':');
+    if (!str) return NaN;
+    if (/^\d+$/.test(str)) return Number(str);
+    var m = str.match(/^(\d+):(\d{1,2})$/);
+    return m ? Number(m[1]) * 60 + Number(m[2]) : NaN;
+  }
+  /** Step text with [[n]] placeholders → plain text ("100 g") for editing. */
+  function toEditable(detail) {
+    return String(detail).replace(/\[\[(\d+(?:\.\d+)?)\]\]/g, function (_, g) { return String(g).replace('.', ',') + ' g'; });
+  }
+  /** Plain text → placeholders, so gram amounts scale with the water. */
+  function fromEditable(text) {
+    return String(text).replace(/(\d+(?:[.,]\d+)?)\s?g\b/g, function (_, g) { return '[[' + g.replace(',', '.') + ']]'; });
+  }
+  /** Validates an own (or imported) recipe and returns a clean copy. Throws with a readable message. */
+  function normalizeCustom(r) {
+    if (typeof r === 'string') r = JSON.parse(r);
+    if (!r || typeof r !== 'object') throw new Error('Kein gültiges Rezept.');
+    var name = String(r.name || '').trim();
+    if (!name) throw new Error('Das Rezept braucht einen Namen.');
+    if (!methodById(r.method)) throw new Error('Unbekannte Brühmethode.');
+    var dose = Number(r.dose), water = Number(r.water);
+    if (!(dose > 0 && dose <= 200)) throw new Error('Kaffeemenge zwischen 1 und 200 g angeben.');
+    if (!(water > 0 && water <= 3000)) throw new Error('Wassermenge zwischen 1 und 3000 g angeben.');
+    var steps = (r.steps || []).map(function (st) {
+      var at = typeof st.at === 'number' ? st.at : parseTime(st.at);
+      return { at: at, title: String(st.title || '').trim().slice(0, 60), detail: String(st.detail || '').trim().slice(0, 300) };
+    }).filter(function (st) { return st.title || st.detail; });
+    if (!steps.length) throw new Error('Mindestens einen Schritt angeben.');
+    steps.forEach(function (st, i) {
+      if (isNaN(st.at)) throw new Error('Schritt ' + (i + 1) + ': Zeit bitte als 1:30 oder in Sekunden angeben.');
+      if (!st.title) st.title = 'Schritt ' + (i + 1);
+    });
+    steps.sort(function (a, b) { return a.at - b.at; });
+    return {
+      id: String(r.id || ('eigen-' + name.toLowerCase().replace(/[^a-z0-9]+/g, '-'))).slice(0, 60),
+      method: r.method, name: name.slice(0, 60), author: String(r.author || 'Eigenes Rezept').slice(0, 60),
+      source: null, custom: true,
+      dose: Math.round(dose * 10) / 10, water: Math.round(water),
+      temp: Number(r.temp) || 94, grind: GRIND_SCALE.indexOf(r.grind) >= 0 ? r.grind : 'mittel',
+      position: String(r.position || '').slice(0, 40), level: 'Eigenes',
+      notes: String(r.notes || '').slice(0, 400), steps: steps
+    };
+  }
 
   function methodById(id) {
     for (var i = 0; i < METHODS.length; i++) if (METHODS[i].id === id) return METHODS[i];
@@ -273,6 +408,7 @@
 
   var api = {
     METHODS: METHODS, RECIPES: RECIPES, GRIND_SCALE: GRIND_SCALE,
+    parseTime: parseTime, toEditable: toEditable, fromEditable: fromEditable, normalizeCustom: normalizeCustom,
     methodById: methodById, recipeById: recipeById, recipesFor: recipesFor,
     scaleRecipe: scaleRecipe, ratioOf: ratioOf, totalTime: totalTime,
     stepIndexAt: stepIndexAt, grindLevel: grindLevel, formatTime: formatTime

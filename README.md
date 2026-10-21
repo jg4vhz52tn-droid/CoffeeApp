@@ -10,15 +10,18 @@ Basiert auf dem *Brewed Coffee Compass* von Barista Hustle, adaptiert für Espre
 
 - **Einstellen** – Rezept des letzten Shots per Drehrad (wie der iPhone-Timer, mit Haptik) eingeben, Geschmack per Begriffen
   oder Tipp auf den Kompass wählen, Empfehlung mit „Jetzt → Nächster Shot“.
+- **Neue Bohne** – direkt beim Espresso anlegen; ein Tipp schlägt aus Röstgrad, Sieb und „pur/mit Milch“ Dosis, Bezug, Zeit und Temperatur vor.
 - **Bohnen** – Zielrezepte (eigene oder von der Rösterei), als Link teilen und importieren.
-- **Brühen** – Rezepte für AeroPress, French Press, V60, Chemex, Mokkakanne und Cold Brew
-  mit Mengen-Regler und geführtem Timer (Schritt-Ansagen, Ton, Vibration).
+- **Brühen** – 19 Rezepte für AeroPress, French Press, V60, Chemex, Mokkakanne, Clever Dripper, Cold Brew und Eiskaffee
+  mit Mengen-Regler und geführtem Timer (Schritt-Ansagen, Ton, Vibration). Eigene Rezepte anlegen, aus Vorlagen anpassen,
+  per Link teilen und importieren.
 - **Verkosten** – Kaffees bewerten (Tüte scannen oder eintragen, Aromarad, Struktur und Urteil per Drehrad)
   und das eigene Geschmacksrad: welche Aromafamilien, Herkünfte und Aufbereitungen dir am besten schmecken.
-- **Cafés** – Specialty-Cafés und Röstereien in der Nähe (OpenStreetMap: Nominatim + Overpass),
-  als Radar und Liste mit Route.
+- **Cafés** – Stadt oder Standort, Umkreis 1–10 km, „Nur geöffnet“ und „Nur Specialty“. Ergebnisse als Karte (Leaflet +
+  OpenStreetMap), als Wisch-Karten (rechts = hin, mit Routenwahl zu Fuß/Rad/ÖPNV/Auto; links = weiter) und als Liste.
+  Daten von OpenStreetMap; mit eigenem Google-Schlüssel (Places API New) zusätzlich Fotos, Sterne und „jetzt geöffnet“.
 - **Verlauf** – der Weg deiner Shots über den Kompass, pro Bohne (unter „Bohnen“).
-- **Wissen** – das Prinzip kurz erklärt.
+- **Wissen** – Anleitung „So nutzt du die App“, Espresso Schritt für Schritt einstellen und das Prinzip dahinter.
 
 Rezepte: AeroPress-Rezepte nach [AeroPrecipe](https://aeroprecipe.com), weitere nach den angegebenen Quellen. Die Anleitungen sind eigene Formulierungen.
 
