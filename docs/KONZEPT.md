@@ -77,7 +77,7 @@ Später lässt sich derselbe Code mit Capacitor o. Ä. als native App verpacken.
 - Kaffee bewerten: Tüte scannen (Foto → Claude liest Rösterei, Herkunft, Aufbereitung, Geschmacksnoten), Aromarad, Struktur, Urteil
 - Geschmacksrad: Ø-Bewertung je Aromafamilie, Lieblingsaromen, Lieblingsprofil (Radar), Rangliste nach Herkunft/Aufbereitung/Röster
 
-**Phase 1d – Alltag (dieser Stand)**
+**Phase 1d – Alltag (fertig)**
 - Neue Bohne direkt beim Espresso, mit Start-Tipp aus Röstgrad, Sieb und Milch/pur
 - Brühen: mehr Rezepte, Clever Dripper, Eiskaffee, eigene Rezepte (anlegen, aus Vorlage, teilen, importieren)
 - Cafés: Karte mit Pins, Wisch-Karten mit Routenwahl, Öffnungszeiten-Filter, 10-km-Umkreis; kostenlose Fotos (Wikimedia Commons) oder Kartenausschnitt, eigene Sterne-Bewertungen
@@ -86,6 +86,12 @@ Später lässt sich derselbe Code mit Capacitor o. Ä. als native App verpacken.
 Hinweis zu Café-Daten: Apps wie Roasters oder European Coffee Trip bieten keine öffentliche Schnittstelle. Die App verlinkt
 deshalb auf deren Suche, statt Daten zu übernehmen. Sterne-Bewertungen gibt es kostenlos nirgends (Google, Yelp und
 Foursquare kosten oder brauchen ein Konto), deshalb zählen die eigenen Bewertungen.
+
+**Phase 1e – Konten (dieser Stand)**
+- Anmelden per E-Mail-Link bzw. Code (Supabase Auth, ohne Passwort), Anzeigename
+- Daten pro Person in Supabase (eine JSON-Zeile, Row Level Security), Abgleich zwischen Geräten, offline weiter nutzbar
+- Brüh-Tagebuch nach dem geführten Brühen
+- Café-Suche vorerst ausgeblendet (Code bleibt, kommt später wieder)
 
 **Phase 2 – Besser einstellen**
 - Mühlen-Datenbank (Stufen, Richtung, typische Bereiche) zur Auswahl

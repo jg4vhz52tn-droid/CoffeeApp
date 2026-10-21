@@ -24,6 +24,7 @@
         <span>Espresso Kompass</span>
       </a>
       <nav class="dock" id="dock" aria-label="Bereiche"></nav>
+      <button class="account-btn" id="account-btn" type="button" hidden></button>
     </div>
   </header>
 
@@ -135,6 +136,11 @@
       <div class="panel recipe-editor" id="recipe-editor" hidden></div>
       <div class="recipe-grid" id="recipe-grid"></div>
       <div class="recipe-detail" id="recipe-detail" hidden></div>
+      <section class="panel brew-log" id="brew-log" hidden>
+        <h2>Meine Brühungen</h2>
+        <p class="muted">Nach dem geführten Brühen speicherst du hier, wie es geschmeckt hat.</p>
+        <ol class="log-list" id="brew-log-list"></ol>
+      </section>
       <aside class="panel discover">
         <h2>Noch mehr Rezepte entdecken</h2>
         <p class="muted">Rezeptsammlungen im Netz. Gefällt dir eins, übernimm es mit „+ Eigenes Rezept“, dann führt dich der Timer auch hier durch.</p>
@@ -317,12 +323,6 @@
           <button class="btn small ghost" type="button" data-go="taste">Zum Verkosten</button>
         </article>
         <article class="panel guide">
-          <span class="guide-ico" data-icon="cafe"></span>
-          <h3>Cafés</h3>
-          <p>Gute Cafés und Röstereien finden: Stadt oder Standort, Umkreis wählen, dann nach rechts wischen, wo du hinwillst.</p>
-          <button class="btn small ghost" type="button" data-go="cafes">Zu den Cafés</button>
-        </article>
-        <article class="panel guide">
           <span class="guide-ico" data-icon="beans"></span>
           <h3>Bohnen</h3>
           <p>Deine Bohnen mit Zielrezept und Verlauf. Profile kannst du teilen – Röstereien können dir so ihr Rezept schicken.</p>
@@ -363,7 +363,7 @@
           <li>Sauer <em>und</em> bitter gleichzeitig? Dann liegt es meist am ungleichmäßig verteilten Kaffeemehl, nicht am Mahlgrad: Kaffee mit einer Nadel auflockern (WDT) und gerade tampern.</li>
           <li>Unter <b>Mühle &amp; Strategie</b> stellst du ein, wie deine Mühle zählt (kleinere Zahl = feiner?) und wie groß ein Schritt ist.</li>
           <li>Die App funktioniert auch ohne Internet. Am Handy über „Teilen → Zum Home-Bildschirm“ wie eine App installieren.</li>
-          <li>Deine Daten bleiben in diesem Browser. Auf einem anderen Gerät fängst du neu an.</li>
+          <li>Mit einem Konto (oben rechts „Anmelden“) sind deine Daten sicher gespeichert und auf jedem Gerät da, auf dem du dich anmeldest. Ohne Konto bleiben sie nur in diesem Browser.</li>
         </ul>
       </div>
 
@@ -399,6 +399,9 @@
     </section>
   </main>
 
+  <!-- Account: sign in, name, sync status -->
+  <div class="sheet" id="account-sheet" role="dialog" aria-modal="true" aria-labelledby="acc-title" hidden></div>
+
   <!-- Route choice after swiping a café to the right -->
   <div class="route-sheet" id="route-sheet" role="dialog" aria-modal="true" aria-labelledby="route-title" hidden></div>
 
@@ -407,6 +410,7 @@
 
   <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
 
+  <script src="js/config.js"></script>
   <script src="js/ui.js"></script>
   <script src="js/tickdial.js"></script>
   <script src="js/engine.js"></script>
@@ -417,5 +421,7 @@
   <script src="js/brew-ui.js"></script>
   <script src="js/cafes-ui.js"></script>
   <script src="js/tasting-ui.js"></script>
+  <script src="js/sync.js"></script>
+  <script src="js/cloud.js"></script>
 </body>
 </html>
