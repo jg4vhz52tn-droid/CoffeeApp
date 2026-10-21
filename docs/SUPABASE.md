@@ -7,9 +7,18 @@ lassen sie sich mit einem Klick wieder starten.
 
 ## 1. Projekt anlegen
 
-1. Auf <https://supabase.com/dashboard> anmelden (dasselbe Konto wie für die Wein-App geht).
-2. **New project** → Name z. B. `espresso-kompass`, Region **Frankfurt (eu-central-1)**,
-   ein Datenbank-Passwort vergeben (wird für die App nicht gebraucht) → **Create new project**.
+Die Kaffee-App bekommt ein **eigenes Projekt mit eigener Datenbank** – getrennt von
+der Wein-App. Nur dein Supabase-Login ist derselbe.
+
+1. Auf <https://supabase.com/dashboard> anmelden (mit deinem bestehenden Supabase-Login).
+2. **Nicht** das Projekt der Wein-App öffnen, sondern **New project** wählen →
+   Name `espresso-kompass`, Region **Frankfurt (eu-central-1)**, ein Datenbank-Passwort
+   vergeben (wird für die App nicht gebraucht) → **Create new project**.
+3. Alle folgenden Schritte im neuen Projekt `espresso-kompass` machen – oben links im
+   Dashboard steht immer, in welchem Projekt du gerade bist.
+
+Im kostenlosen Tarif sind zwei aktive Projekte möglich; Wein-App und Kaffee-App passen also beide hinein.
+Falls Supabase beim Anlegen trotzdem ein Limit meldet, sag Bescheid.
 
 ## 2. Tabellen anlegen
 
