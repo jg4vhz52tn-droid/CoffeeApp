@@ -18,7 +18,8 @@ Basiert auf dem *Brewed Coffee Compass* von Barista Hustle, adaptiert für Espre
 - **Verkosten** – Kaffees bewerten (Tüte scannen oder eintragen, Aromarad, Struktur und Urteil per Drehrad)
   und das eigene Geschmacksrad: welche Aromafamilien, Herkünfte und Aufbereitungen dir am besten schmecken.
 - **Konto** – Anmelden per E-Mail-Link (oder 6-stelligem Code), Namen wählen. Bohnen, Shots, Bewertungen, eigene Rezepte
-  und das Brüh-Tagebuch werden in Supabase gespeichert und auf allen Geräten abgeglichen; ohne Konto bleibt alles lokal.
+  und das Brüh-Tagebuch werden in Supabase gespeichert (eigenes Schema `coffee` im Projekt der Wein-App) und auf allen
+  Geräten abgeglichen; ohne Konto bleibt alles lokal.
   Einrichtung: [`docs/SUPABASE.md`](docs/SUPABASE.md).
 - **Brüh-Tagebuch** – nach dem geführten Brühen mit Sternen und Notiz speichern.
 - **Cafés** (vorerst ausgeblendet) – Stadt oder Standort, Umkreis 1–10 km, „Nur geöffnet“ und „Nur Specialty“. Ergebnisse als Karte (Leaflet +

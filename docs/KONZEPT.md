@@ -89,7 +89,7 @@ Foursquare kosten oder brauchen ein Konto), deshalb zählen die eigenen Bewertun
 
 **Phase 1e – Konten (dieser Stand)**
 - Anmelden per E-Mail-Link bzw. Code (Supabase Auth, ohne Passwort), Anzeigename
-- Daten pro Person in Supabase (eine JSON-Zeile, Row Level Security), Abgleich zwischen Geräten, offline weiter nutzbar
+- Daten pro Person in Supabase (eine JSON-Zeile, Row Level Security) im eigenen Schema `coffee` des Wein-Projekts, Abgleich zwischen Geräten, offline weiter nutzbar
 - Brüh-Tagebuch nach dem geführten Brühen
 - Café-Suche vorerst ausgeblendet (Code bleibt, kommt später wieder)
 

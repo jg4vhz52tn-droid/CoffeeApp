@@ -1,73 +1,81 @@
 # Konten & Speichern mit Supabase einrichten
 
-Einmalig, ca. 10 Minuten. Für eine private App reicht der kostenlose Tarif von
-Supabase locker (die aktuellen Grenzen stehen auf <https://supabase.com/pricing>).
-Kostenlose Projekte werden nach längerer Zeit ohne Nutzung pausiert; im Dashboard
-lassen sie sich mit einem Klick wieder starten.
+Die Kaffee-App nutzt **dasselbe Supabase-Projekt wie die Wein-App**, aber einen
+**eigenen Bereich** (Schema `coffee`) mit eigenen Tabellen. Die Wein-Tabellen
+werden nicht angefasst. Einmalig, ca. 10 Minuten.
 
-## 1. Projekt anlegen
+## 1. Tabellen anlegen
 
-Die Kaffee-App bekommt ein **eigenes Projekt mit eigener Datenbank** – getrennt von
-der Wein-App. Nur dein Supabase-Login ist derselbe.
+1. <https://supabase.com/dashboard> → das **Wein-Projekt** öffnen.
+2. **SQL Editor → New query**, den Inhalt von [`supabase/schema.sql`](../supabase/schema.sql)
+   einfügen und **Run** drücken.
 
-1. Auf <https://supabase.com/dashboard> anmelden (mit deinem bestehenden Supabase-Login).
-2. **Nicht** das Projekt der Wein-App öffnen, sondern **New project** wählen →
-   Name `espresso-kompass`, Region **Frankfurt (eu-central-1)**, ein Datenbank-Passwort
-   vergeben (wird für die App nicht gebraucht) → **Create new project**.
-3. Alle folgenden Schritte im neuen Projekt `espresso-kompass` machen – oben links im
-   Dashboard steht immer, in welchem Projekt du gerade bist.
+Danach gibt es `coffee.profiles` (Name in der Kaffee-App) und `coffee.user_data`
+(alle Kaffee-Daten). Row Level Security sorgt dafür, dass jede Person nur ihre
+eigenen Daten sieht. Im Bereich `public` (Wein) ändert das Skript nichts.
 
-Im kostenlosen Tarif sind zwei aktive Projekte möglich; Wein-App und Kaffee-App passen also beide hinein.
-Falls Supabase beim Anlegen trotzdem ein Limit meldet, sag Bescheid.
+## 2. Den Bereich für die App freigeben
 
-## 2. Tabellen anlegen
+**Project Settings → Data API → Exposed schemas**: `coffee` **hinzufügen**
+(`public` und `graphql_public` drin lassen) → **Save**.
 
-**SQL Editor → New query**, den Inhalt von [`supabase/schema.sql`](../supabase/schema.sql)
-einfügen und **Run** drücken. Danach gibt es die Tabellen `profiles` und `user_data`,
-jeweils mit Row Level Security: Jede Person sieht nur ihre eigenen Daten.
-
-## 3. Anmeldung per E-Mail einstellen
+## 3. Anmelde-Link auf die Kaffee-App zeigen lassen
 
 **Authentication → URL Configuration**
 
-- **Site URL:** `https://jg4vhz52tn-droid.github.io/CoffeeApp/`
-- **Redirect URLs:** dieselbe Adresse eintragen (zum lokalen Testen zusätzlich `http://localhost:8080/`).
+- **Site URL nicht ändern** – die gehört der Wein-App.
+- Unter **Redirect URLs** → **Add URL**: `https://jg4vhz52tn-droid.github.io/CoffeeApp/`
+  (zum lokalen Testen zusätzlich `http://localhost:8080/`).
 
-**Authentication → Sign In / Providers → Email:** „Enable Email provider“ an,
-„Confirm email“ an. Ein Passwort braucht niemand – die App schickt einen Anmelde-Link.
+Ohne diesen Eintrag würde der Link aus der Mail auf der Wein-App landen.
 
-**Authentication → Email Templates → Magic Link** – damit auch der 6-stellige Code
-in der Mail steht (wichtig, wenn die App vom iPhone-Home-Bildschirm aus genutzt wird):
+## 4. Code in die Anmelde-Mail aufnehmen (empfohlen)
+
+Der 6-stellige Code hilft, wenn der Link im falschen Browser aufgeht – z. B. bei der
+App vom iPhone-Home-Bildschirm. **Authentication → Email Templates → Magic Link**.
+
+Die Vorlage gilt für **beide Apps**, darum neutral formulieren. Steht dort schon
+ein eigener Text der Wein-App, nur die Zeile mit dem Code ergänzen:
 
 ```html
-<h2>Dein Anmelde-Link für Espresso Kompass</h2>
+<h2>Dein Anmelde-Link</h2>
 <p><a href="{{ .ConfirmationURL }}">Jetzt anmelden</a></p>
 <p>Oder gib diesen Code in der App ein: <strong>{{ .Token }}</strong></p>
 ```
 
-Dasselbe gern auch im Template **Confirm signup** ergänzen.
+Dasselbe gern auch im Template **Confirm signup**.
 
-## 4. Schlüssel in die App eintragen
+## 5. Schlüssel in die App eintragen
 
-**Project Settings → API Keys**: die **Project URL** und den **Publishable key**
-(`sb_publishable_…`) kopieren und in [`js/config.js`](../js/config.js) eintragen:
+**Project Settings → API Keys**: **Project URL** und **Publishable key**
+(`sb_publishable_…`) – dieselben Werte, die auch die Wein-App nutzt. In
+[`js/config.js`](../js/config.js) eintragen:
 
 ```js
 window.CLOUD_CONFIG = {
   url: 'https://DEINPROJEKT.supabase.co',
-  key: 'sb_publishable_…'
+  key: 'sb_publishable_…',
+  schema: 'coffee'
 };
 ```
 
 Beide Werte sind für den Browser gedacht und dürfen öffentlich im Repo stehen.
 **Niemals** den `secret`-/`service_role`-Schlüssel eintragen.
 
-## Gut zu wissen
+## Was sich beide Apps teilen
 
-- **E-Mail-Limit:** Supabase verschickt mit dem eingebauten Mailserver nur wenige
-  Anmelde-Mails pro Stunde. Für dich und ein paar Freunde reicht das. Für mehr
-  Nutzer unter **Project Settings → Authentication → SMTP Settings** einen eigenen
-  Mailversand eintragen (z. B. Resend oder Brevo, beide mit kostenlosem Kontingent).
-- **Was gespeichert wird:** Bohnen, Shots, Bewertungen, eigene Rezepte, das
-  Brüh-Tagebuch und Einstellungen – als ein Datensatz pro Person in `user_data`.
-- **Ohne Internet** arbeitet die App lokal weiter und speichert beim nächsten Mal.
+- **Anmelde-Konten:** Wer sich in der Kaffee-App anmeldet, hat damit auch ein Konto
+  für die Wein-App (dieselbe E-Mail-Adresse, ein Login). Die Daten bleiben getrennt.
+- **Wein-Profil wird mit angelegt:** Die Wein-Datenbank legt bei jeder neuen
+  Anmeldung automatisch ein (leeres) Wein-Profil an – auch bei Kaffee-Nutzern.
+  Das stört nicht; wer später die Wein-App öffnet, ist dort schon eingerichtet.
+- **Mailversand:** Beide Apps teilen sich das Kontingent für Anmelde-Mails (im
+  kostenlosen Tarif nur wenige pro Stunde). Für mehr Nutzer unter
+  **Project Settings → Authentication → SMTP Settings** einen eigenen Mailversand
+  eintragen (z. B. Resend oder Brevo, beide mit kostenlosem Kontingent).
+- **Pausieren:** Wird das Projekt wegen Inaktivität pausiert, sind beide Apps betroffen.
+
+## Wieder entfernen
+
+Alles von der Kaffee-App liegt im Schema `coffee`. Im SQL Editor
+`drop schema coffee cascade;` löscht es vollständig, ohne die Wein-App zu berühren.

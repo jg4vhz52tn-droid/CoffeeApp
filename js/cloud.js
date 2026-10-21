@@ -191,7 +191,7 @@
         flow.email = f.input.value.trim();
         flow.busy = true; flow.error = '';
         renderSheet();
-        client.auth.signInWithOtp({ email: flow.email, options: { emailRedirectTo: redirectUrl(), shouldCreateUser: true } }).then(function (r) {
+        client.auth.signInWithOtp({ email: flow.email, options: { emailRedirectTo: redirectUrl(), shouldCreateUser: true, data: { app: 'espresso-kompass' } } }).then(function (r) {
           flow.busy = false;
           if (r.error) { flow.error = errorText(r.error); renderSheet(); return; }
           flow.step = 'sent';
@@ -314,7 +314,10 @@
 
   loadSdk().then(function (sb) {
     client = sb.createClient(cfg.url, cfg.key, {
-      auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true }
+      // Own schema, so the coffee tables never mix with another app in the same project.
+      db: { schema: cfg.schema || 'coffee' },
+      // Own storage key, so a second app on the same Supabase project keeps its own sign-in.
+      auth: { flowType: 'pkce', persistSession: true, autoRefreshToken: true, detectSessionInUrl: true, storageKey: 'espresso-kompass-auth' }
     });
     client.auth.onAuthStateChange(function (event, session) {
       if (event === 'SIGNED_IN' && session && (!user || user.id !== session.user.id)) {
