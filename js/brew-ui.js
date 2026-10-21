@@ -5,10 +5,18 @@
   var B = window.BrewData;
   var U = window.UI;
   var App = window.App;
-  var $ = U.$, el = U.el, fmt = U.fmt;
+  var $ = U.$, el = U.el, fmt = U.fmt, toast = U.toast;
   var state = App.state;
 
   var current = null; // scaled recipe shown in the detail panel
+  state.brew.custom = state.brew.custom || [];
+
+  function allRecipes(method) {
+    return B.recipesFor(method).concat(state.brew.custom.filter(function (r) { return r.method === method; }));
+  }
+  function findRecipe(id) {
+    return B.recipeById(id) || state.brew.custom.filter(function (r) { return r.id === id; })[0] || null;
+  }
 
   function renderMethods() {
     var rail = $('#method-rail');
@@ -29,7 +37,7 @@
   function renderRecipes() {
     var grid = $('#recipe-grid');
     grid.innerHTML = '';
-    B.recipesFor(state.brew.method).forEach(function (r, i) {
+    allRecipes(state.brew.method).forEach(function (r, i) {
       grid.appendChild(el('button', {
         class: 'recipe-card', type: 'button', style: 'animation-delay:' + (i * 50) + 'ms',
         'aria-pressed': String(state.brew.recipe === r.id),
@@ -50,11 +58,15 @@
           el('span', { class: 'stat', text: B.formatTime(B.totalTime(r)) })
         ]),
         el('div', { class: 'stat-row' }, [
-          el('span', { class: 'tag', text: r.level }),
+          el('span', { class: 'tag' + (r.custom ? ' own' : ''), text: r.level }),
           r.position ? el('span', { class: 'tag', text: r.position }) : null
         ])
       ]));
     });
+    grid.appendChild(el('button', { class: 'recipe-card add-card', type: 'button', onclick: function () { openEditor(null); } }, [
+      el('span', { class: 'add-plus', text: '+' }), el('h3', { text: 'Eigenes Rezept' }),
+      el('div', { class: 'by', text: 'Mit eigenen Schritten – der Timer führt dich genauso durch.' })
+    ]));
   }
 
   function param(k, v, extra, id) {
@@ -71,7 +83,7 @@
 
   function renderDetail(scroll) {
     var box = $('#recipe-detail');
-    var base = state.brew.recipe && B.recipeById(state.brew.recipe);
+    var base = state.brew.recipe && findRecipe(state.brew.recipe);
     if (!base || base.method !== state.brew.method) { box.hidden = true; current = null; return; }
     var water = state.brew.water || base.water;
     current = B.scaleRecipe(base, water);
@@ -110,6 +122,13 @@
       el('div', { class: 'scaler' }, [waterDial.el]),
       el('p', { class: 'recipe-notes', text: base.notes }),
       el('button', { class: 'btn accent', type: 'button', style: 'width:100%', onclick: openBrewMode }, [U.icon('play'), 'Geführt brühen']),
+      el('div', { class: 'recipe-actions' }, base.custom ? [
+        el('button', { class: 'btn small ghost on-dark', type: 'button', onclick: function () { openEditor(base); } }, ['Bearbeiten']),
+        el('button', { class: 'btn small ghost on-dark', type: 'button', onclick: function () { shareRecipe(base); } }, [U.icon('share'), 'Teilen']),
+        el('button', { class: 'btn small ghost on-dark', type: 'button', onclick: function (ev) { deleteRecipe(base.id, ev.currentTarget); } }, ['Löschen'])
+      ] : [
+        el('button', { class: 'btn small ghost on-dark', type: 'button', onclick: function () { openEditor(base, true); } }, ['Als eigenes Rezept anpassen'])
+      ]),
       base.source ? el('a', { class: 'source-link', href: base.source.url, target: '_blank', rel: 'noopener' }, ['Quelle: ' + base.source.label, U.icon('external')]) : null
     ]);
 
@@ -126,6 +145,154 @@
     box.appendChild(right);
     if (scroll) box.scrollIntoView({ behavior: 'smooth', block: 'start' });
   }
+
+  // ---------- own recipes: editor, share, import ----------
+  var editing = null; // id of the custom recipe being edited, or null for a new one
+
+  /** recipe: null (blank), a built-in (fork=true) or a custom recipe to edit. */
+  function openEditor(recipe, fork) {
+    var box = $('#recipe-editor');
+    editing = recipe && recipe.custom && !fork ? recipe.id : null;
+    var src = recipe || { name: '', method: state.brew.method, dose: 15, water: 250, temp: 94, grind: 'mittel', notes: '',
+      steps: [{ at: 0, title: 'Bloom', detail: '[[40]] Wasser aufgießen' }, { at: 45, title: 'Aufgießen', detail: 'Auf [[250]] gesamt aufgießen' }, { at: 180, title: 'Fertig', detail: '' }] };
+    var f = {};
+    function input(key, attrs) {
+      f[key] = el('input', Object.assign({ id: 're-' + key, value: src[key] == null ? '' : src[key] }, attrs || {}));
+      return f[key];
+    }
+    function selectOf(key, options) {
+      f[key] = el('select', { id: 're-' + key }, options.map(function (o) { return el('option', { value: o[0] }, [o[1]]); }));
+      f[key].value = src[key];
+      return f[key];
+    }
+    box.innerHTML = '';
+    box.appendChild(el('div', { class: 'flow-head' }, [
+      el('div', {}, [el('p', { class: 'eyebrow', text: editing ? 'Bearbeiten' : fork ? 'Vorlage: ' + recipe.name : 'Neu' }), el('h2', { text: 'Eigenes Rezept' })]),
+      el('button', { class: 'icon-btn light', type: 'button', 'aria-label': 'Schließen', onclick: closeEditor }, [U.icon('close')])
+    ]));
+    box.appendChild(el('div', { class: 'form-grid' }, [
+      el('label', { class: 'field span2', for: 're-name' }, [el('span', { class: 'label', text: 'Name' }), input('name', { maxlength: 60, placeholder: 'z. B. Mein Sonntags-V60', value: fork ? recipe.name + ' (meine Version)' : src.name })]),
+      el('label', { class: 'field span2', for: 're-method' }, [el('span', { class: 'label', text: 'Methode' }), selectOf('method', B.METHODS.map(function (m) { return [m.id, m.name]; }))]),
+      el('label', { class: 'field', for: 're-dose' }, [el('span', { class: 'label', text: 'Kaffee (g)' }), input('dose', { type: 'number', step: '0.1', min: 1 })]),
+      el('label', { class: 'field', for: 're-water' }, [el('span', { class: 'label', text: 'Wasser (g)' }), input('water', { type: 'number', step: '1', min: 1 })]),
+      el('label', { class: 'field', for: 're-temp' }, [el('span', { class: 'label', text: 'Temperatur (°C)' }), input('temp', { type: 'number', step: '1' })]),
+      el('label', { class: 'field', for: 're-grind' }, [el('span', { class: 'label', text: 'Mahlgrad' }), selectOf('grind', B.GRIND_SCALE.map(function (g) { return [g, g]; }))]),
+      el('label', { class: 'field span4', for: 're-notes' }, [el('span', { class: 'label', text: 'Notizen' }), input('notes', { maxlength: 400, placeholder: 'Wofür ist das Rezept gut? Welche Bohne?' })])
+    ]));
+    var list = el('ol', { class: 'step-editor' });
+    function addRow(st) {
+      var t = el('input', { class: 'se-time', value: st ? B.formatTime(st.at) : '', placeholder: '0:30', 'aria-label': 'Zeit (m:ss)', inputmode: 'numeric' });
+      var title = el('input', { class: 'se-title', value: st ? st.title : '', placeholder: 'z. B. Aufgießen', maxlength: 60, 'aria-label': 'Schritt' });
+      var detail = el('input', { class: 'se-detail', value: st ? B.toEditable(st.detail) : '', placeholder: 'z. B. Auf 250 g gesamt aufgießen', maxlength: 300, 'aria-label': 'Beschreibung' });
+      var li = el('li', {}, [t, title, detail, el('button', { class: 'icon-btn light small', type: 'button', 'aria-label': 'Schritt entfernen', onclick: function () { li.remove(); } }, [U.icon('close')])]);
+      list.appendChild(li);
+    }
+    src.steps.forEach(addRow);
+    box.appendChild(el('div', { class: 'field' }, [
+      el('span', { class: 'label', text: 'Schritte · Zeit ab Start, Mengen in g werden beim Skalieren mitgerechnet' }),
+      list,
+      el('button', { class: 'btn small ghost', type: 'button', style: 'align-self:flex-start', onclick: function () { addRow(null); } }, ['+ Schritt'])
+    ]));
+    var err = el('p', { class: 'error', hidden: true });
+    box.appendChild(err);
+    box.appendChild(el('div', { class: 'row-actions' }, [
+      el('button', { class: 'btn accent', type: 'button', onclick: function () {
+        try {
+          var steps = Array.prototype.map.call(list.children, function (li) {
+            var ins = li.querySelectorAll('input');
+            return { at: ins[0].value || '0', title: ins[1].value, detail: B.fromEditable(ins[2].value) };
+          });
+          var r = B.normalizeCustom({ id: editing, name: f.name.value, method: f.method.value, dose: f.dose.value, water: f.water.value,
+            temp: f.temp.value, grind: f.grind.value, notes: f.notes.value, steps: steps });
+          saveCustom(r);
+          closeEditor();
+          U.tick('major');
+          toast('Rezept gespeichert.');
+        } catch (e) { err.textContent = e.message; err.hidden = false; }
+      } }, ['Rezept speichern']),
+      el('button', { class: 'btn ghost', type: 'button', onclick: closeEditor }, ['Abbrechen'])
+    ]));
+    box.hidden = false;
+    box.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  function closeEditor() { $('#recipe-editor').hidden = true; editing = null; }
+
+  function saveCustom(r) {
+    var idx = -1;
+    state.brew.custom.forEach(function (x, i) { if (x.id === r.id) idx = i; });
+    if (idx >= 0 && editing === r.id) state.brew.custom[idx] = r;
+    else {
+      var base = r.id, n = 1;
+      while (findRecipe(r.id)) r.id = base + '-' + (++n);
+      state.brew.custom.push(r);
+    }
+    state.brew.method = r.method;
+    state.brew.recipe = r.id;
+    state.brew.water = null;
+    App.save();
+    renderMethods(); renderRecipes(); renderDetail(true);
+  }
+  function deleteRecipe(id, btn) {
+    if (btn.dataset.armed !== '1') {
+      btn.dataset.armed = '1';
+      btn.textContent = 'Wirklich löschen?';
+      setTimeout(function () { if (btn.isConnected) { btn.dataset.armed = ''; btn.textContent = 'Löschen'; } }, 4000);
+      return;
+    }
+    state.brew.custom = state.brew.custom.filter(function (r) { return r.id !== id; });
+    state.brew.recipe = null;
+    App.save();
+    renderRecipes(); renderDetail();
+    toast('Rezept gelöscht.');
+  }
+  function shareRecipe(r) {
+    var payload = { name: r.name, method: r.method, dose: r.dose, water: r.water, temp: r.temp, grind: r.grind, notes: r.notes, steps: r.steps };
+    var url = location.origin + location.pathname + '#recipe=' + U.b64encode(payload);
+    var done = function () { toast('Rezept-Link kopiert.'); };
+    if (navigator.clipboard) navigator.clipboard.writeText(url).then(done, function () { showShareFallback(url); });
+    else showShareFallback(url);
+  }
+  function showShareFallback(url) {
+    $('#recipe-import').hidden = false;
+    $('#recipe-import-text').value = url;
+    $('#recipe-import-text').select();
+    toast('Link markiert – zum Teilen kopieren.');
+  }
+  function importRecipe(text) {
+    text = text.trim();
+    var m = text.match(/#recipe=([A-Za-z0-9_-]+)/);
+    var obj = m ? U.b64decode(m[1]) : JSON.parse(text);
+    obj.id = null;
+    editing = null;
+    saveCustom(B.normalizeCustom(obj));
+    toast('„' + obj.name + '“ importiert.');
+  }
+  $('#recipe-new').addEventListener('click', function () { openEditor(null); });
+  $('#recipe-import-btn').addEventListener('click', function () {
+    $('#recipe-import').hidden = false; $('#recipe-import-error').hidden = true; $('#recipe-import-text').focus();
+  });
+  $('#recipe-import-cancel').addEventListener('click', function () { $('#recipe-import').hidden = true; });
+  $('#recipe-import-go').addEventListener('click', function () {
+    try {
+      importRecipe($('#recipe-import-text').value);
+      $('#recipe-import-text').value = '';
+      $('#recipe-import').hidden = true;
+    } catch (e) {
+      $('#recipe-import-error').textContent = 'Import fehlgeschlagen: ' + (e instanceof SyntaxError ? 'Das ist kein gültiger Rezept-Link oder -Text.' : e.message);
+      $('#recipe-import-error').hidden = false;
+    }
+  });
+  // A shared recipe link opens the import card so the user confirms in the page.
+  function handleRecipeHash() {
+    var m = location.hash.match(/^#recipe=([A-Za-z0-9_-]+)/);
+    if (!m) return;
+    App.showView('brew');
+    $('#recipe-import').hidden = false;
+    $('#recipe-import-text').value = location.origin + location.pathname + m[0];
+    try { history.replaceState(null, '', location.pathname + '#brew'); } catch (e) { /* sandboxed */ }
+  }
+  document.addEventListener('DOMContentLoaded', handleRecipeHash);
+  window.addEventListener('hashchange', handleRecipeHash);
 
   // ---------- guided brew mode ----------
   var bm = { t: 0, running: false, last: 0, raf: null, step: -1, wake: null };

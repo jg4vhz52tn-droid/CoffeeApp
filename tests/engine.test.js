@@ -57,3 +57,15 @@ test('parseProfile rejects nonsense', () => {
   assert.throws(() => E.parseProfile({}));
   assert.throws(() => E.parseProfile({ name: 'x', recipe: { dose: 80 } }));
 });
+
+test('suggestRecipe adapts to roast, basket and milk', () => {
+  const light = E.suggestRecipe({ roast: 'hell', basket: 'double' });
+  assert.deepStrictEqual([light.dose, light.yield, light.temp], [18, 43, 94]);
+  const dark = E.suggestRecipe({ roast: 'dunkel', basket: 'double', milk: true });
+  assert.deepStrictEqual([dark.dose, dark.yield, dark.temp, dark.timeMax], [18, 29, 90, 28]);
+  const single = E.suggestRecipe({ roast: 'mittel', basket: 'single' });
+  assert.deepStrictEqual([single.dose, single.yield], [9, 18]);
+  assert.ok(E.suggestRecipe({}).why.length >= 2);
+  // a suggestion must always be a valid profile
+  assert.doesNotThrow(() => E.parseProfile({ name: 'x', recipe: E.suggestRecipe({ roast: 'hell', basket: 'triple', milk: true }) }));
+});

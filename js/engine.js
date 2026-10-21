@@ -299,6 +299,40 @@
     return out;
   }
 
+  /**
+   * Starting recipe for a bean you know little about.
+   * input: { roast: 'hell'|'mittel'|'dunkel', basket: 'single'|'double'|'triple', milk: boolean }
+   * Returns { dose, yield, timeMin, timeMax, temp, why: [strings] }.
+   */
+  function suggestRecipe(input) {
+    input = input || {};
+    var roast = ['hell', 'mittel', 'dunkel'].indexOf(input.roast) >= 0 ? input.roast : 'mittel';
+    var basket = { single: 9, double: 18, triple: 21 }[input.basket] || 18;
+    var base = {
+      hell: { ratio: 2.4, timeMin: 27, timeMax: 33, temp: 94,
+        why: 'Helle Röstungen lösen sich schwerer: längerer Bezug, etwas längere Zeit und heißeres Wasser.' },
+      mittel: { ratio: 2.0, timeMin: 25, timeMax: 30, temp: 93,
+        why: 'Mittlere Röstungen sind der Klassiker: 1:2 in 25–30 Sekunden.' },
+      dunkel: { ratio: 1.8, timeMin: 22, timeMax: 28, temp: 90,
+        why: 'Dunkle Röstungen werden schnell bitter: kürzerer Bezug, kürzere Zeit und kühleres Wasser.' }
+    }[roast];
+    var ratio = base.ratio;
+    var why = [base.why];
+    if (input.milk) {
+      ratio = Math.max(1.5, ratio - 0.2);
+      why.push('Mit Milch darf der Shot kräftiger sein, deshalb etwas kürzer.');
+    }
+    why.push(basket === 9 ? 'Single-Sieb: rund 9 g Kaffee.' : basket === 21 ? 'Triple-Sieb: rund 21 g Kaffee.' : 'Doppeltes Sieb: rund 18 g Kaffee – das passt in die meisten Siebträger.');
+    return {
+      dose: basket,
+      yield: Math.round(basket * ratio),
+      timeMin: base.timeMin,
+      timeMax: base.timeMax,
+      temp: base.temp,
+      why: why
+    };
+  }
+
   /** Validates and normalises an imported bean profile. Throws on invalid input. */
   function parseProfile(obj) {
     if (typeof obj === 'string') obj = JSON.parse(obj);
@@ -335,6 +369,7 @@
     zoneOf: zoneOf,
     recommend: recommend,
     checkAgainstProfile: checkAgainstProfile,
+    suggestRecipe: suggestRecipe,
     parseProfile: parseProfile
   };
 

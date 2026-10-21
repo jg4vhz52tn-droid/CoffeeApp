@@ -72,10 +72,20 @@ Später lässt sich derselbe Code mit Capacitor o. Ä. als native App verpacken.
 - Brühmethoden mit Rezepten (AeroPress, French Press, V60, Chemex, Moka, Cold Brew), Mengen-Regler und geführtem Timer
 - Café-Suche über OpenStreetMap mit Specialty-Einstufung (Rösterei, Name, Coffee-Shop-Tag; Ketten/Bäckereien abgewertet)
 
-**Phase 1c – Verkosten (dieser Stand)**
+**Phase 1c – Verkosten (fertig)**
 - Drehrad-Regler wie in der Wein-App (iOS-Timer-Lineal, Haptik auch auf dem iPhone) für Dosis, Bezug, Zeit, Mahlgrad und Wassermenge
 - Kaffee bewerten: Tüte scannen (Foto → Claude liest Rösterei, Herkunft, Aufbereitung, Geschmacksnoten), Aromarad, Struktur, Urteil
 - Geschmacksrad: Ø-Bewertung je Aromafamilie, Lieblingsaromen, Lieblingsprofil (Radar), Rangliste nach Herkunft/Aufbereitung/Röster
+
+**Phase 1d – Alltag (dieser Stand)**
+- Neue Bohne direkt beim Espresso, mit Start-Tipp aus Röstgrad, Sieb und Milch/pur
+- Brühen: mehr Rezepte, Clever Dripper, Eiskaffee, eigene Rezepte (anlegen, aus Vorlage, teilen, importieren)
+- Cafés: Karte mit Pins, Wisch-Karten mit Routenwahl, Öffnungszeiten-Filter, 10-km-Umkreis; kostenlose Fotos (Wikimedia Commons) oder Kartenausschnitt, eigene Sterne-Bewertungen
+- Wissen: Anleitung für die ganze App
+
+Hinweis zu Café-Daten: Apps wie Roasters oder European Coffee Trip bieten keine öffentliche Schnittstelle. Die App verlinkt
+deshalb auf deren Suche, statt Daten zu übernehmen. Sterne-Bewertungen gibt es kostenlos nirgends (Google, Yelp und
+Foursquare kosten oder brauchen ein Konto), deshalb zählen die eigenen Bewertungen.
 
 **Phase 2 – Besser einstellen**
 - Mühlen-Datenbank (Stufen, Richtung, typische Bereiche) zur Auswahl

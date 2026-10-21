@@ -43,10 +43,14 @@
             <button class="pill-btn" id="timer-btn" type="button" aria-live="polite"></button>
           </div>
 
-          <label class="select-wrap" for="bean-select">
-            <span class="label">Bohne</span>
-            <select id="bean-select"></select>
-          </label>
+          <div class="bean-row">
+            <label class="select-wrap" for="bean-select">
+              <span class="label">Bohne</span>
+              <select id="bean-select"></select>
+            </label>
+            <button class="btn ghost bean-add" id="bean-quick-btn" type="button" aria-expanded="false">+ Neue Bohne</button>
+          </div>
+          <div class="quick-bean" id="quick-bean" hidden></div>
           <div id="bean-target" class="target-row" hidden></div>
 
           <div class="dial-tabs" id="dial-tabs" role="tablist" aria-label="Rezeptwerte"></div>
@@ -114,8 +118,33 @@
         <p class="lede">Methode wählen, Menge anpassen, Timer starten. Die App sagt dir, wann du gießt, rührst und drückst.</p>
       </div>
       <div class="method-rail" id="method-rail" role="tablist" aria-label="Brühmethode"></div>
+      <div class="row-actions brew-tools">
+        <button class="btn accent small" id="recipe-new" type="button">+ Eigenes Rezept</button>
+        <button class="btn ghost small" id="recipe-import-btn" type="button">Rezept importieren</button>
+      </div>
+      <div class="panel" id="recipe-import" hidden>
+        <h2>Rezept importieren</h2>
+        <p class="muted">Füge einen geteilten Rezept-Link oder den Rezept-Text (JSON) ein.</p>
+        <textarea id="recipe-import-text" class="text-input" rows="4"></textarea>
+        <div class="row-actions">
+          <button class="btn" id="recipe-import-go" type="button">Importieren</button>
+          <button class="btn ghost" id="recipe-import-cancel" type="button">Abbrechen</button>
+        </div>
+        <p id="recipe-import-error" class="error" hidden></p>
+      </div>
+      <div class="panel recipe-editor" id="recipe-editor" hidden></div>
       <div class="recipe-grid" id="recipe-grid"></div>
       <div class="recipe-detail" id="recipe-detail" hidden></div>
+      <aside class="panel discover">
+        <h2>Noch mehr Rezepte entdecken</h2>
+        <p class="muted">Rezeptsammlungen im Netz. Gefällt dir eins, übernimm es mit „+ Eigenes Rezept“, dann führt dich der Timer auch hier durch.</p>
+        <div class="discover-links">
+          <a class="discover-link" href="https://aeroprecipe.com" target="_blank" rel="noopener"><strong>AeroPrecipe</strong><span>Hunderte AeroPress-Rezepte, inkl. Weltmeisterschaft</span></a>
+          <a class="discover-link" href="https://aeroprecipe.com/championship-aeropress-recipes" target="_blank" rel="noopener"><strong>Weltmeister-Rezepte</strong><span>Alle AeroPress-Championship-Rezepte gesammelt</span></a>
+          <a class="discover-link" href="https://honestcoffeeguide.com/brew-recipes/" target="_blank" rel="noopener"><strong>Honest Coffee Guide</strong><span>Rezepte für V60, Clever, French Press und mehr</span></a>
+          <a class="discover-link" href="https://www.youtube.com/@jameshoffmann/videos" target="_blank" rel="noopener"><strong>James Hoffmann</strong><span>Videos zu fast jeder Brühmethode</span></a>
+        </div>
+      </aside>
     </section>
 
     <!-- ================= VERKOSTEN ================= -->
@@ -150,28 +179,52 @@
       <div class="view-head">
         <p class="eyebrow">Cafés finden</p>
         <h1>Guter Kaffee in deiner Nähe.</h1>
-        <p class="lede">Specialty-Cafés und Röstereien zuerst, Ketten und Bäckereien weiter unten. Daten von OpenStreetMap.</p>
+        <p class="lede">Stadt eingeben oder Standort nutzen, Umkreis wählen, suchen. Dann wischst du dich durch die besten Cafés – rechts heißt „da will ich hin“. Alles kostenlos: Daten von OpenStreetMap, Fotos von Wikimedia Commons.</p>
       </div>
       <form class="cafe-search panel" id="cafe-form">
         <div class="search-row">
           <label class="search-field" for="cafe-query">
             <span class="sr-only">Ort</span>
-            <input id="cafe-query" type="search" placeholder="Stadt, Viertel oder Adresse" autocomplete="off">
+            <input id="cafe-query" type="search" placeholder="Stadt, Viertel oder Adresse – z. B. Frankfurt" autocomplete="off">
           </label>
-          <button class="btn" type="submit" id="cafe-search-btn">Suchen</button>
-          <button class="btn ghost" type="button" id="cafe-locate">In meiner Nähe</button>
+          <button class="btn ghost" type="button" id="cafe-locate">Mein Standort</button>
         </div>
         <div class="filter-row">
           <div class="chip-row" id="radius-chips" role="radiogroup" aria-label="Umkreis"></div>
-          <label class="switch"><input type="checkbox" id="cafe-specialty" checked><span class="track"><i></i></span><span>Nur Specialty</span></label>
+          <div class="switches">
+            <label class="switch"><input type="checkbox" id="cafe-open" checked><span class="track"><i></i></span><span>Nur geöffnet</span></label>
+            <label class="switch"><input type="checkbox" id="cafe-specialty" checked><span class="track"><i></i></span><span>Nur Specialty</span></label>
+          </div>
         </div>
+        <button class="btn accent search-go" type="submit" id="cafe-search-btn">Cafés suchen</button>
       </form>
       <div id="cafe-status" class="cafe-status" aria-live="polite"></div>
-      <div class="cafe-layout" id="cafe-layout" hidden>
-        <div class="instrument radar-panel">
-          <svg id="radar" viewBox="-1.15 -1.15 2.3 2.3" role="img" aria-label="Cafés nach Richtung und Entfernung"></svg>
-          <p class="instrument-hint" id="radar-caption"></p>
+      <div id="cafe-results" hidden>
+        <div class="cafe-top">
+          <div class="map-panel" id="map-panel">
+            <div id="cafe-map" role="region" aria-label="Karte mit Cafés"></div>
+            <svg id="radar" viewBox="-1.15 -1.15 2.3 2.3" role="img" aria-label="Cafés nach Richtung und Entfernung" hidden></svg>
+            <p class="map-caption" id="map-caption"></p>
+          </div>
+          <div class="deck-panel">
+            <div class="deck-head">
+              <h2>Entdecken</h2>
+              <span class="muted" id="deck-count"></span>
+            </div>
+            <p class="muted deck-hint">Nach rechts wischen = hin, nach links = weiter.</p>
+            <div class="deck" id="deck" aria-live="polite"></div>
+            <div class="deck-buttons">
+              <button class="deck-btn nope" type="button" id="deck-nope" aria-label="Weiter (nach links wischen)">✕</button>
+              <button class="deck-btn like" type="button" id="deck-like" aria-label="Will ich hin (nach rechts wischen)">♥</button>
+            </div>
+          </div>
         </div>
+        <div class="liked-block" id="liked-block" hidden>
+          <h2 class="section-title">Gemerkt</h2>
+          <div class="liked-row" id="liked-row"></div>
+        </div>
+        <div class="more-links" id="more-links"></div>
+        <h2 class="section-title">Alle Cafés im Umkreis</h2>
         <ol class="cafe-list" id="cafe-list"></ol>
       </div>
     </section>
@@ -199,6 +252,10 @@
         <form id="bean-form" class="form-grid">
           <label class="field span2"><span class="label">Name</span><input name="name" id="bf-name" required maxlength="80"></label>
           <label class="field span2"><span class="label">Rösterei</span><input name="roaster" id="bf-roaster" maxlength="80"></label>
+          <div class="span4 tip-toggle">
+            <button class="btn small ghost" type="button" id="bf-tip-btn" aria-expanded="false">Keine Ahnung, was du eintragen sollst? Tipp holen</button>
+          </div>
+          <div class="span4" id="bf-tip-slot" hidden></div>
           <label class="field"><span class="label">Dosis (g)</span><input name="dose" id="bf-dose" type="number" step="0.1" required></label>
           <label class="field"><span class="label">Bezug (g)</span><input name="yield" id="bf-yield" type="number" step="1" required></label>
           <label class="field"><span class="label">Zeit von (s)</span><input name="timeMin" id="bf-tmin" type="number" required></label>
@@ -234,9 +291,83 @@
     <!-- ================= WISSEN ================= -->
     <section class="view prose" id="view-learn" data-title="Wissen" hidden>
       <div class="view-head">
-        <p class="eyebrow">Wissen</p>
-        <h1>Zwei Achsen erklären jeden Espresso.</h1>
+        <p class="eyebrow">Wissen &amp; Anleitung</p>
+        <h1>So holst du das Beste aus der App.</h1>
+        <p class="lede">Erst die kurze Anleitung, dann das Wissen dahinter.</p>
       </div>
+
+      <h2 class="section-title">Wofür ist was?</h2>
+      <div class="guide-grid">
+        <article class="panel guide">
+          <span class="guide-ico" data-icon="espresso"></span>
+          <h3>Espresso</h3>
+          <p>Deine Siebträgermaschine einstellen, bis der Espresso schmeckt – auch bei jeder neuen Bohne.</p>
+          <button class="btn small ghost" type="button" data-go="espresso">Zum Espresso</button>
+        </article>
+        <article class="panel guide">
+          <span class="guide-ico" data-icon="brew"></span>
+          <h3>Brühen</h3>
+          <p>Rezepte für AeroPress, V60, French Press & Co. Menge wählen, Timer starten, die App sagt dir jeden Schritt an. Eigene Rezepte kannst du anlegen.</p>
+          <button class="btn small ghost" type="button" data-go="brew">Zum Brühen</button>
+        </article>
+        <article class="panel guide">
+          <span class="guide-ico" data-icon="wheel"></span>
+          <h3>Verkosten</h3>
+          <p>Jeden Kaffee bewerten, den du probierst. Dein Geschmacksrad zeigt dann, welche Aromen und Herkünfte du am meisten magst.</p>
+          <button class="btn small ghost" type="button" data-go="taste">Zum Verkosten</button>
+        </article>
+        <article class="panel guide">
+          <span class="guide-ico" data-icon="cafe"></span>
+          <h3>Cafés</h3>
+          <p>Gute Cafés und Röstereien finden: Stadt oder Standort, Umkreis wählen, dann nach rechts wischen, wo du hinwillst.</p>
+          <button class="btn small ghost" type="button" data-go="cafes">Zu den Cafés</button>
+        </article>
+        <article class="panel guide">
+          <span class="guide-ico" data-icon="beans"></span>
+          <h3>Bohnen</h3>
+          <p>Deine Bohnen mit Zielrezept und Verlauf. Profile kannst du teilen – Röstereien können dir so ihr Rezept schicken.</p>
+          <button class="btn small ghost" type="button" data-go="beans">Zu den Bohnen</button>
+        </article>
+      </div>
+
+      <h2 class="section-title">Espresso einstellen – Schritt für Schritt</h2>
+      <ol class="howto">
+        <li>
+          <h3>Bohne wählen oder anlegen</h3>
+          <p>Oben unter <b>Bohne</b> auswählen. Neue Bohne? Tippe auf <b>„+ Neue Bohne“</b>. Weißt du nicht, welche Werte passen, wähle Röstgrad, Sieb und ob du ihn pur oder mit Milch trinkst – die App schlägt Dosis, Bezug, Zeit und Temperatur vor.</p>
+        </li>
+        <li>
+          <h3>Mahlen, wiegen, Shot ziehen</h3>
+          <p>Kaffee abwiegen (Dosis), in den Siebträger, tampern. Tasse auf die Waage, Bezug starten und gleichzeitig den <b>Shot-Timer</b> drücken. Bei der Ziel-Menge stoppen – die Zeit wird automatisch eingetragen.</p>
+        </li>
+        <li>
+          <h3>Werte mit dem Rad eintragen</h3>
+          <p>Tippe oben auf <b>Dosis, Bezug, Zeit</b> oder <b>Mahlgrad</b> und wische über das Rad, bis die Zahl stimmt – wie beim iPhone-Timer. Jeder Strich klickt leicht.</p>
+        </li>
+        <li>
+          <h3>Probieren und im Kompass einordnen</h3>
+          <p>Schmeckt er sauer, bitter, wässrig oder zu schwer? Tippe die passenden Begriffe an oder zieh den Punkt auf dem Kompass dorthin, wo dein Shot liegt.</p>
+        </li>
+        <li>
+          <h3>Empfehlung übernehmen</h3>
+          <p>Unten steht, was du ändern sollst, z. B. <b>„2 Stufen feiner“</b>. Mit <b>„Übernehmen &amp; nächster Shot“</b> stehen die neuen Werte schon drin. Ändere möglichst nur eine Sache auf einmal.</p>
+        </li>
+        <li>
+          <h3>Treffer speichern</h3>
+          <p>Liegt der Punkt in der Mitte, tippe <b>„Rezept für diese Bohne speichern“</b>. Beim nächsten Mal startest du direkt mit deinen Werten.</p>
+        </li>
+      </ol>
+      <div class="panel tips">
+        <h3>Gut zu wissen</h3>
+        <ul>
+          <li>Sauer <em>und</em> bitter gleichzeitig? Dann liegt es meist am ungleichmäßig verteilten Kaffeemehl, nicht am Mahlgrad: Kaffee mit einer Nadel auflockern (WDT) und gerade tampern.</li>
+          <li>Unter <b>Mühle &amp; Strategie</b> stellst du ein, wie deine Mühle zählt (kleinere Zahl = feiner?) und wie groß ein Schritt ist.</li>
+          <li>Die App funktioniert auch ohne Internet. Am Handy über „Teilen → Zum Home-Bildschirm“ wie eine App installieren.</li>
+          <li>Deine Daten bleiben in diesem Browser. Auf einem anderen Gerät fängst du neu an.</li>
+        </ul>
+      </div>
+
+      <h2 class="section-title">Das Wissen dahinter: zwei Achsen erklären jeden Espresso</h2>
       <div class="learn-grid">
         <article class="panel">
           <h2>Extraktion</h2>
@@ -267,6 +398,9 @@
       </div>
     </section>
   </main>
+
+  <!-- Route choice after swiping a café to the right -->
+  <div class="route-sheet" id="route-sheet" role="dialog" aria-modal="true" aria-labelledby="route-title" hidden></div>
 
   <!-- Guided brew overlay -->
   <div class="brew-mode" id="brew-mode" role="dialog" aria-modal="true" aria-labelledby="bm-title" hidden></div>

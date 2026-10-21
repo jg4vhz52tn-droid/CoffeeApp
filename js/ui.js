@@ -136,6 +136,7 @@
     v60: '<path d="M4 6h16l-6 9h-4z"/><path d="M9 15l-1 3h8l-1-3"/><path d="M5 21h14"/>',
     chemex: '<path d="M6 3h12l-4.5 8L18 21H6l4.5-10z"/><path d="M9.5 9.5h5"/>',
     moka: '<path d="M8 3h8l1 6H7z"/><path d="M7 9h10l-2 3 2 9H7l2-9z"/><path d="M17 5l2.5 2"/><path d="M12 3V1.5"/>',
+    clever: '<path d="M4 5h16l-3 10H7z"/><path d="M8 15v3h8v-3"/><path d="M10 18v2h4v-2"/><path d="M4 21h16"/>',
     coldbrew: '<path d="M7 4h10v15a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2z"/><path d="M7 8h10"/><rect x="9.5" y="11" width="4" height="4" rx=".8" transform="rotate(12 11.5 13)"/>',
     play: '<path d="M8 5v14l11-7z"/>',
     pause: '<path d="M7 5h3.5v14H7zM13.5 5H17v14h-3.5z"/>',
@@ -160,5 +161,19 @@
     return wrap.firstChild;
   }
 
-  root.UI = { $: $, $$: $$, el: el, svg: svg, fmt: fmt, toast: toast, load: load, save: save, vibrate: vibrate, tick: tick, releaseTick: releaseTick, beep: beep, icon: icon, ICONS: ICONS };
+  /** Object ↔ URL-safe base64 (UTF-8), used for share links. */
+  function b64encode(obj) {
+    var bytes = new TextEncoder().encode(JSON.stringify(obj));
+    var bin = '';
+    bytes.forEach(function (b) { bin += String.fromCharCode(b); });
+    return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+  }
+  function b64decode(str) {
+    var bin = atob(str.replace(/-/g, '+').replace(/_/g, '/'));
+    var bytes = new Uint8Array(bin.length);
+    for (var i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+    return JSON.parse(new TextDecoder().decode(bytes));
+  }
+
+  root.UI = { $: $, $$: $$, el: el, svg: svg, fmt: fmt, toast: toast, load: load, save: save, vibrate: vibrate, tick: tick, releaseTick: releaseTick, beep: beep, icon: icon, ICONS: ICONS, b64encode: b64encode, b64decode: b64decode };
 })(this);
