@@ -10,6 +10,7 @@
 
   var current = null; // scaled recipe shown in the detail panel
   state.brew.custom = state.brew.custom || [];
+  state.brew.log = state.brew.log || [];
 
   function allRecipes(method) {
     return B.recipesFor(method).concat(state.brew.custom.filter(function (r) { return r.method === method; }));
@@ -384,6 +385,77 @@
     U.vibrate([30, 80, 30]);
     if (bm.wake) { bm.wake.release().catch(function () {}); bm.wake = null; }
     render();
+    showSaveBrew();
+  }
+
+  // ---------- brew log ("Meine Brühungen") ----------
+  function showSaveBrew() {
+    var body = $('#brew-mode .bm-body');
+    if (!body || $('#bm-save')) return;
+    var stars = 0;
+    var row = el('div', { class: 'rate-row big', role: 'radiogroup', 'aria-label': 'Wie hat er geschmeckt?' });
+    function paint() {
+      Array.prototype.forEach.call(row.children, function (b, i) {
+        b.classList.toggle('on', i < stars);
+        b.setAttribute('aria-checked', String(i + 1 === stars));
+      });
+    }
+    for (var i = 1; i <= 5; i++) {
+      (function (n) {
+        row.appendChild(el('button', { type: 'button', class: 'rate-star', role: 'radio', 'aria-label': n + ' Sterne',
+          onclick: function () { stars = n; U.tick('minor'); paint(); } }, ['★']));
+      })(i);
+    }
+    var note = el('input', { id: 'bm-note', maxlength: 200, placeholder: 'Notiz, z. B. Bohne oder was du ändern willst' });
+    var box = el('div', { class: 'bm-save', id: 'bm-save' }, [
+      el('strong', { text: 'Wie hat er geschmeckt?' }),
+      row,
+      note,
+      el('div', { class: 'row-actions' }, [
+        el('button', { class: 'btn accent', type: 'button', onclick: function () {
+          state.brew.log.push({
+            id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6), at: new Date().toISOString(),
+            recipeId: current.id, name: current.name, method: current.method,
+            dose: current.dose, water: current.water, stars: stars || null, note: note.value.trim()
+          });
+          App.save();
+          U.tick('major');
+          toast('Im Brüh-Tagebuch gespeichert.');
+          closeBrewMode();
+          renderLog();
+        } }, ['Im Tagebuch speichern']),
+        el('button', { class: 'btn ghost on-dark', type: 'button', onclick: closeBrewMode }, ['Nicht speichern'])
+      ])
+    ]);
+    body.appendChild(box);
+  }
+
+  function renderLog() {
+    var box = $('#brew-log');
+    var list = state.brew.log.slice().reverse();
+    box.hidden = !list.length;
+    var ol = $('#brew-log-list');
+    ol.innerHTML = '';
+    list.slice(0, 30).forEach(function (b) {
+      var m = B.methodById(b.method);
+      ol.appendChild(el('li', { class: 'log-item' }, [
+        el('span', { class: 'log-ico' }, [U.icon(m ? m.icon : 'brew')]),
+        el('div', { class: 'log-main' }, [
+          el('strong', { text: b.name }),
+          el('span', { class: 'muted', text: new Date(b.at).toLocaleString('de-DE', { dateStyle: 'medium', timeStyle: 'short' }) +
+            ' · ' + fmt(b.dose) + ' g → ' + fmt(b.water) + ' g' }),
+          b.note ? el('span', { class: 'log-note', text: b.note }) : null
+        ]),
+        el('span', { class: 'log-stars', 'aria-label': b.stars ? b.stars + ' von 5 Sternen' : 'nicht bewertet', text: b.stars ? '★★★★★'.slice(0, b.stars) : '' }),
+        el('button', { class: 'icon-btn light small', type: 'button', 'aria-label': 'Eintrag löschen', onclick: function (ev) {
+          var btn = ev.currentTarget;
+          if (btn.dataset.armed !== '1') { btn.dataset.armed = '1'; btn.classList.add('armed'); toast('Nochmal tippen zum Löschen.'); return; }
+          state.brew.log = state.brew.log.filter(function (x) { return x.id !== b.id; });
+          App.save();
+          renderLog();
+        } }, [U.icon('close')])
+      ]));
+    });
   }
 
   function render() {
@@ -423,9 +495,9 @@
     });
     var play = $('#bm-play');
     play.innerHTML = '';
-    play.appendChild(U.icon(bm.running ? 'pause' : (done ? 'reset' : 'play')));
+    play.appendChild(U.icon(bm.running ? 'pause' : 'play'));
     play.setAttribute('aria-label', bm.running ? 'Pause' : 'Start');
   }
 
-  App.onView('brew', function () { renderMethods(); renderRecipes(); renderDetail(); });
+  App.onView('brew', function () { renderMethods(); renderRecipes(); renderDetail(); renderLog(); });
 })();

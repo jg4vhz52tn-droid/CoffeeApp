@@ -17,7 +17,12 @@ Basiert auf dem *Brewed Coffee Compass* von Barista Hustle, adaptiert für Espre
   per Link teilen und importieren.
 - **Verkosten** – Kaffees bewerten (Tüte scannen oder eintragen, Aromarad, Struktur und Urteil per Drehrad)
   und das eigene Geschmacksrad: welche Aromafamilien, Herkünfte und Aufbereitungen dir am besten schmecken.
-- **Cafés** – Stadt oder Standort, Umkreis 1–10 km, „Nur geöffnet“ und „Nur Specialty“. Ergebnisse als Karte (Leaflet +
+- **Konto** – Anmelden per E-Mail-Link (oder 6-stelligem Code), Namen wählen. Bohnen, Shots, Bewertungen, eigene Rezepte
+  und das Brüh-Tagebuch werden in Supabase gespeichert (eigenes Schema `coffee` im Projekt der Wein-App) und auf allen
+  Geräten abgeglichen; ohne Konto bleibt alles lokal.
+  Einrichtung: [`docs/SUPABASE.md`](docs/SUPABASE.md).
+- **Brüh-Tagebuch** – nach dem geführten Brühen mit Sternen und Notiz speichern.
+- **Cafés** (vorerst ausgeblendet) – Stadt oder Standort, Umkreis 1–10 km, „Nur geöffnet“ und „Nur Specialty“. Ergebnisse als Karte (Leaflet +
   OpenStreetMap), als Wisch-Karten (rechts = hin, mit Routenwahl zu Fuß/Rad/ÖPNV/Auto; links = weiter) und als Liste.
   Komplett kostenlos: Daten von OpenStreetMap, Fotos von Wikimedia Commons (über OSM-Tags oder Wikidata), sonst ein
   Kartenausschnitt mit Pin. Statt fremder Sterne bewertest du besuchte Cafés selbst; schlecht bewertete tauchen nicht mehr auf.
@@ -28,7 +33,7 @@ Rezepte: AeroPress-Rezepte nach [AeroPrecipe](https://aeroprecipe.com), weitere 
 
 Der Tüten-Scan nutzt Claude und steht nur in der auf claude.ai veröffentlichten Fassung zur Verfügung; sonst werden die Angaben von Hand eingetragen.
 
-Alles läuft lokal im Browser (Daten in `localStorage`), offline-fähig, installierbar als PWA.
+Ohne Konto läuft alles lokal im Browser (Daten in `localStorage`); mit Konto zusätzlich in Supabase. Offline-fähig, installierbar als PWA.
 
 ## Starten
 
@@ -47,6 +52,10 @@ Kein Build-Schritt nötig – die Seite lässt sich direkt z. B. über GitHub Pa
 | `js/brew-data.js` | Brühmethoden, Rezepte, Skalierung (testbar in Node) |
 | `js/cafes.js` | Café-Suche über OpenStreetMap, Specialty-Einstufung (testbar in Node) |
 | `js/tasting-data.js` | Aromafamilien (nach SCA Flavor Wheel), Geschmacksprofil, Scan-Auswertung (testbar in Node) |
+| `js/config.js` | Supabase-Projekt-URL und Publishable Key (leer = ohne Konten) |
+| `js/sync.js` | Regeln für den Abgleich Gerät ↔ Konto (testbar in Node) |
+| `js/cloud.js` | Anmeldung, Name, Speichern in Supabase |
+| `supabase/schema.sql` | Tabellen und Zugriffsregeln (Row Level Security) |
 | `js/ui.js` | Gemeinsame DOM-Helfer, Icons, Haptik, Speicherung |
 | `js/tickdial.js` | Drehrad-Regler (Strich-Lineal mit Einrasten und Klick-Feedback) |
 | `js/app.js` | Navigation, Espresso-Ansicht, Bohnen, Teilen/Import |

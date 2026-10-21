@@ -29,7 +29,13 @@
   var activeGroup = 'under';
   var lastResult = null;
 
-  function save() { U.save(state); }
+  /** Saves on this device and, when signed in, in the account (cloud.js). */
+  function save() {
+    state.meta = state.meta || {};
+    state.meta.updatedAt = Date.now();
+    U.save(state);
+    if (window.Cloud) window.Cloud.changed();
+  }
 
   function profileById(id) {
     for (var i = 0; i < state.profiles.length; i++) if (state.profiles[i].id === id) return state.profiles[i];
@@ -42,27 +48,28 @@
     { id: 'espresso', label: 'Espresso', icon: 'espresso' },
     { id: 'brew', label: 'Brühen', icon: 'brew' },
     { id: 'taste', label: 'Verkosten', icon: 'wheel' },
-    { id: 'cafes', label: 'Cafés', icon: 'cafe' },
+    { id: 'cafes', label: 'Cafés', icon: 'cafe', later: true }, // postponed: hidden until switched on again
     { id: 'beans', label: 'Bohnen', icon: 'beans' },
     { id: 'learn', label: 'Wissen', icon: 'learn' }
   ];
   var viewListeners = {};
   var dock = $('#dock');
-  VIEWS.forEach(function (v) {
+  VIEWS.filter(function (v) { return !v.later; }).forEach(function (v) {
     var b = el('button', { type: 'button', 'data-view': v.id, onclick: function () { showView(v.id); } }, [U.icon(v.icon), el('span', { text: v.label })]);
     dock.appendChild(b);
   });
   $('.brand').addEventListener('click', function (ev) { ev.preventDefault(); showView('espresso'); });
 
   function showView(id, opts) {
-    if (!VIEWS.some(function (v) { return v.id === id; })) id = 'espresso';
+    if (!VIEWS.some(function (v) { return v.id === id && !v.later; })) id = 'espresso';
     $$('#dock button').forEach(function (b) {
       if (b.dataset.view === id) b.setAttribute('aria-current', 'page'); else b.removeAttribute('aria-current');
     });
     $$('.view').forEach(function (v) { v.hidden = v.id !== 'view-' + id; });
     state.view = id;
-    save();
-    try { if (location.hash.slice(1) !== id && !/^#(bean|recipe)=/.test(location.hash)) history.replaceState(null, '', '#' + id); } catch (e) { /* sandboxed */ }
+    U.save(state); // switching views is not a change worth syncing
+    // Leave share links and sign-in tokens in the address bar for the code that reads them.
+    try { if (location.hash.slice(1) !== id && !/^#(bean|recipe)=|access_token=|error=/.test(location.hash)) history.replaceState(null, '', '#' + id); } catch (e) { /* sandboxed */ }
     if (!(opts && opts.keepScroll)) window.scrollTo({ top: 0 });
     (viewListeners[id] || []).forEach(function (fn) { fn(); });
   }
